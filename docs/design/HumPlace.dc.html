@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Capture: place and harmonize</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#121316}
+a{color:#ECEDEF;text-decoration:none}a:hover{color:#FFFFFF}
+button{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #121316; color: #ECEDEF; font-family: 'Space Grotesk', system-ui, sans-serif; display: flex; flex-direction: column; padding: 16px; gap: 12px; overflow: hidden">
+
+<div style="display: flex; align-items: center; gap: 8px; height: 44px">
+<a href="Perform.dc.html" aria-label="Close" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #2E313A; background: #1E2026; display: flex; align-items: center; justify-content: center">
+<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#ECEDEF" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 3 L13 13 M13 3 L3 13"></path></svg>
+</a>
+<div style="display: flex; flex-direction: column; flex-grow: 1; min-width: 0">
+<span style="font-size: 17px; font-weight: 700">Your melody</span>
+<span style="font-size: 11px; color: #9A9DA6; font-family: 'IBM Plex Mono', monospace">9 notes · 2 bars · tidied</span>
+</div>
+<button aria-label="Play melody" style="width: 44px; height: 44px; border-radius: 12px; border: none; background: {{accent}}; display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M5 3 L15 9 L5 15 Z" fill="#121316"></path></svg>
+</button>
+</div>
+
+<div style="position: relative; height: 140px; border-radius: 16px; background: #1A1C21; border: 1px solid #262930; overflow: hidden">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+<div style="{{r.style}}"><span style="width: 34px; padding-left: 8px; font-size: 10px; font-family: 'IBM Plex Mono', monospace; color: #9A9DA6">{{r.name}}</span></div>
+</sc-for>
+<svg width="358" height="140" viewBox="0 0 358 140" style="position: absolute; left: 0; top: 0" aria-hidden="true">
+<path d="M40 0 V140 M199 0 V140" stroke="#2E313A"></path>
+<sc-if value="{{showRaw}}" hint-placeholder-val="{{ true }}">
+<path d="{{trace}}" fill="none" stroke="#5CC8FF" stroke-opacity="0.45" stroke-width="2" stroke-linecap="round"></path>
+</sc-if>
+</svg>
+<sc-for list="{{notes}}" as="n" hint-placeholder-count="9">
+<span style="{{n.style}}"></span>
+</sc-for>
+</div>
+
+<div style="display: flex; align-items: center; gap: 6px">
+<button onClick="{{down}}" aria-label="Transpose down" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #2E313A; background: #1E2026; color: #ECEDEF; font-size: 20px">−</button>
+<button onClick="{{fit}}" style="{{fitStyle}}">
+<span style="font-size: 13px; font-weight: 700">{{shiftLabel}}</span>
+<span style="font-size: 11px; opacity: 0.85">{{keyLabel}}</span>
+</button>
+<button onClick="{{up}}" aria-label="Transpose up" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #2E313A; background: #1E2026; color: #ECEDEF; font-size: 20px">+</button>
+<button onClick="{{toggleMode}}" style="{{modeStyle}}">{{modeLabel}}</button>
+</div>
+
+<div style="display: flex; gap: 6px">
+<button style="height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid #2E313A; background: #1E2026; color: #ECEDEF; font-size: 12px">Snap 1/8</button>
+<button onClick="{{toggleRaw}}" style="{{rawStyle}}">Show capture</button>
+<a href="Hum.dc.html" style="height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid #2E313A; background: #1E2026; color: #ECEDEF; font-size: 12px; display: flex; align-items: center">Redo</a>
+</div>
+
+<div style="background: #172129; border: 1px solid #2B4A5C; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: center; gap: 8px">
+<svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true" fill="none" stroke="#5CC8FF" stroke-width="1.6" stroke-linecap="round"><path d="M9 2 L10.6 7.4 L16 9 L10.6 10.6 L9 16 L7.4 10.6 L2 9 L7.4 7.4 Z"></path></svg>
+<span style="font-size: 13px; font-weight: 700; color: #9FD9F7; flex-grow: 1">Where it goes</span>
+<button style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #2B4A5C; background: transparent; color: #9FD9F7; font-size: 12px">Other spot</button>
+</div>
+<span style="font-size: 13px; line-height: 1.4; color: #DCEFF9">2-bar hook for B, over Fm, A♭, B♭. Shifted to beat 1, up an octave.</span>
+<div style="display: flex; gap: 6px; flex-wrap: wrap">
+<sc-for list="{{chips}}" as="c" hint-placeholder-count="4">
+<button style="height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid #2B4A5C; background: #1F3442; color: #CFEBFA; font-size: 12px">{{c}}</button>
+</sc-for>
+</div>
+</div>
+
+<div style="background: #1A1C21; border: 1px solid #262930; border-radius: 16px; padding: 12px; display: flex; flex-direction: column; gap: 8px">
+<div style="display: flex; align-items: baseline; gap: 8px">
+<span style="font-size: 13px; font-weight: 700; flex-grow: 1">Harmony</span>
+<span style="font-size: 11px; color: #9A9DA6">on device, instant</span>
+</div>
+<sc-for list="{{takes}}" as="t" hint-placeholder-count="3">
+<button onClick="{{t.pick}}" style="{{t.style}}">
+<span style="width: 26px; font-weight: 700">{{t.id}}</span>
+<span style="width: 92px; font-size: 13px">{{t.name}}</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; opacity: 0.85">{{t.chords}}</span>
+</button>
+</sc-for>
+<div style="display: flex; gap: 6px">
+<sc-for list="{{parts}}" as="p" hint-placeholder-count="3">
+<button onClick="{{p.toggle}}" style="{{p.style}}">{{p.label}}</button>
+</sc-for>
+</div>
+</div>
+
+<div style="margin-top: auto; display: flex; gap: 8px">
+<a href="Perform.dc.html" style="flex: 1 1 0; height: 52px; border-radius: 14px; border: 1px solid #2E313A; background: #1E2026; color: #ECEDEF; font-size: 15px; display: flex; align-items: center; justify-content: center">Keep as clip</a>
+<a href="Song.dc.html" style="flex: 2 1 0; height: 52px; border-radius: 14px; background: {{accent}}; color: #121316; font-size: 15px; font-weight: 700; display: flex; align-items: center; justify-content: center">Place in B</a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FFB547","options":["#FFB547","#5CC8FF","#B8F07A","#FF8FB1"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { take: 1, raw: true, parts: [true, true, false], semis: 3, steps: 0, diatonic: false };
+  }
+  renderVals() {
+    const accent = this.props.accent ?? '#FFB547';
+    const H = 140;
+    const names = ['C6','B♭5','A♭5','G5','F5','E♭5','D5','C5'];
+    const rowH = H / 8;
+    const rows = names.map((n, i) => ({
+      name: n,
+      style: 'position: absolute; left: 0; right: 0; top: ' + (i * rowH).toFixed(1) + 'px; height: ' + rowH.toFixed(1) + 'px; display: flex; align-items: center; box-sizing: border-box; border-bottom: 1px solid #22252B; background: ' + (n.charAt(0) === 'C' ? '#1E2128' : 'transparent') + ';'
+    }));
+    const x0 = 40, stepW = 318 / 16;
+    const fitted = !this.state.diatonic && this.state.semis === 3;
+    const rowShift = this.state.diatonic ? this.state.steps : 0;
+    const melody = [[0,2,4],[2,1,5],[3,1,4],[4,2,3],[6,2,2],[8,1,3],[9,3,4],[12,2,7],[14,2,6]];
+    const notes = melody.map((m) => {
+      const row = Math.max(0, Math.min(7, m[2] + rowShift));
+      return {
+        style: 'position: absolute; left: ' + (x0 + m[0] * stepW + 1).toFixed(1) + 'px; top: ' + ((7 - row) * rowH + 3).toFixed(1) + 'px; width: ' + (m[1] * stepW - 2).toFixed(1) + 'px; height: ' + (rowH - 6).toFixed(1) + 'px; border-radius: 4px; background: ' + (fitted || this.state.diatonic ? accent : '#FF8F6B') + ';'
+      };
+    });
+    const yOf = (row) => H - (row + 0.5) * rowH;
+    const pts = [];
+    melody.forEach((m, idx) => {
+      const start = x0 + m[0] * stepW - 8;
+      const end = x0 + (m[0] + m[1]) * stepW - 8;
+      const y = yOf(m[2]) + (idx % 2 ? 3 : -2);
+      for (let x = start; x <= end; x += 4) pts.push([x, y + Math.sin((x + idx * 9) / 5) * 2]);
+    });
+    const trace = 'M' + pts.map((p) => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join(' L');
+    const keys = ['A','B♭','B','C','D♭','D','E♭','E','F','F♯','G','A♭'];
+    const sm = ((this.state.semis % 12) + 12) % 12;
+    let shiftLabel, keyLabel;
+    if (this.state.diatonic) {
+      const s = this.state.steps;
+      shiftLabel = (s > 0 ? '+' : '') + s + ' scale steps';
+      keyLabel = 'stays in C minor';
+    } else {
+      const s = this.state.semis;
+      shiftLabel = (s > 0 ? '+' : '') + s + ' semitones';
+      keyLabel = fitted ? 'hummed A min → song key C min' : 'now ' + keys[sm] + ' min · tap to fit song key';
+    }
+    const nudge = (d) => () => {
+      if (this.state.diatonic) this.setState({ steps: Math.max(-3, Math.min(3, this.state.steps + d)) });
+      else this.setState({ semis: Math.max(-12, Math.min(12, this.state.semis + d)) });
+    };
+    const takeDefs = [['A','Pop','Fm · A♭ · B♭ · Cm'],['B','Melancholy','Fm · Cm · A♭ · G'],['C','Jazzy','Fm7 · B♭7 · E♭maj7 · G7']];
+    const takes = takeDefs.map((t, i) => {
+      const on = i === this.state.take;
+      return {
+        id: t[0], name: t[1], chords: t[2],
+        pick: () => this.setState({ take: i }),
+        style: 'display: flex; align-items: center; gap: 6px; height: 40px; padding: 0 12px; border-radius: 12px; text-align: left; cursor: pointer; ' +
+          (on ? 'background: ' + accent + '; color: #121316; border: 1px solid ' + accent + ';' : 'background: #1E2026; color: #ECEDEF; border: 1px solid #2E313A;')
+      };
+    });
+    const partDefs = ['Bass','Pad','2nd voice'];
+    const parts = partDefs.map((l, i) => {
+      const on = this.state.parts[i];
+      return {
+        label: (on ? '✓ ' : '+ ') + l,
+        toggle: () => { const p = this.state.parts.slice(); p[i] = !p[i]; this.setState({ parts: p }); },
+        style: 'flex: 1 1 0; height: 34px; border-radius: 10px; font-size: 12px; cursor: pointer; ' +
+          (on ? 'background: #2A2D35; color: #ECEDEF; border: 1px solid #4A4F5C;' : 'background: transparent; color: #9A9DA6; border: 1px dashed #3A3E48;')
+      };
+    });
+    return {
+      accent, rows, notes, trace, takes, parts, shiftLabel, keyLabel,
+      chips: ['Section: B', 'Repeat ×4', 'Track: KEYS', 'Octave +1'],
+      up: nudge(1), down: nudge(-1),
+      fit: () => this.setState({ diatonic: false, semis: 3, steps: 0 }),
+      fitStyle: 'flex: 1 1 0; min-width: 0; height: 44px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; cursor: pointer; ' +
+        (fitted ? 'background: #1F3442; color: #CFEBFA; border: 1px solid #2B4A5C;' : 'background: #2A1E1A; color: #FFC9B8; border: 1px solid #6B3A2C;'),
+      toggleMode: () => this.setState({ diatonic: !this.state.diatonic, steps: 0 }),
+      modeLabel: this.state.diatonic ? 'In key' : 'Chromatic',
+      modeStyle: 'width: 76px; height: 44px; border-radius: 12px; font-size: 12px; cursor: pointer; ' +
+        (this.state.diatonic ? 'background: ' + accent + '; color: #121316; border: 1px solid ' + accent + ';' : 'background: #1E2026; color: #ECEDEF; border: 1px solid #2E313A;'),
+      showRaw: this.state.raw,
+      toggleRaw: () => this.setState({ raw: !this.state.raw }),
+      rawStyle: 'height: 34px; padding: 0 10px; border-radius: 8px; font-size: 12px; cursor: pointer; ' +
+        (this.state.raw ? 'background: #1F3442; color: #9FD9F7; border: 1px solid #2B4A5C;' : 'background: #1E2026; color: #ECEDEF; border: 1px solid #2E313A;')
+    };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,198 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Desktop layout</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#121316}
+a{color:#ECEDEF}a:hover{color:#FFFFFF}
+button,input{font:inherit}
+</style>
+</helmet>
+<div style="box-sizing: border-box; min-height: 800px; background: #121316; color: #ECEDEF; font-family: 'Space Grotesk', system-ui, sans-serif; padding: 20px 24px; display: flex; flex-direction: column; gap: 16px">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 10px">
+<span style="font-size: 20px; font-weight: 700; flex-grow: 1">[Project name]</span>
+<button aria-label="Play" style="width: 44px; height: 44px; border-radius: 12px; border: none; background: {{accent}}; display: flex; align-items: center; justify-content: center">
+<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M5 3 L15 9 L5 15 Z" fill="#121316"></path></svg>
+</button>
+<button aria-label="Record" style="width: 44px; height: 44px; border-radius: 12px; border: 1px solid #2E313A; background: #1E2026; display: flex; align-items: center; justify-content: center">
+<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="#FF6B5E"></circle></svg>
+</button>
+<button style="height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid #2E313A; background: #1E2026; color: #ECEDEF; font-family: 'IBM Plex Mono', monospace; font-size: 14px">92 BPM</button>
+<button style="height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid #2E313A; background: #1E2026; color: #ECEDEF; font-size: 13px">Key: C minor</button>
+<button style="height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid #2E313A; background: #1E2026; color: #ECEDEF; font-size: 13px">MIDI: 2 devices</button>
+<button style="height: 44px; padding: 0 12px; border-radius: 12px; border: 1px solid #5CC8FF; background: #1F3442; color: #9FD9F7; font-size: 13px">Jam mode on</button>
+</header>
+
+<div style="display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start">
+
+<main style="flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="display: flex; gap: 6px">
+<sc-for list="{{sections}}" as="s" hint-placeholder-count="5">
+<div style="{{s.style}}"><span style="font-weight: 700; font-size: 14px">{{s.name}}</span><span style="font-size: 11px; font-family: 'IBM Plex Mono', monospace; opacity: 0.8">{{s.bars}} bars</span></div>
+</sc-for>
+</div>
+<div style="background: #1A1C21; border: 1px solid #262930; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 6px; overflow-x: auto">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+<div style="display: flex; align-items: center; gap: 10px; min-width: 560px">
+<span style="{{r.nameStyle}}">{{r.name}}<span style="font-size: 10px; font-family: 'IBM Plex Mono', monospace; color: #9A9DA6; margin-left: 6px">{{r.kind}}</span></span>
+<div style="flex-grow: 1; display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 4px">
+<sc-for list="{{r.cells}}" as="c" hint-placeholder-count="16">
+<span style="{{c.style}}"></span>
+</sc-for>
+</div>
+</div>
+</sc-for>
+</div>
+<div style="background: #1A1C21; border: 1px solid #262930; border-radius: 16px; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+<span style="font-weight: 700; font-size: 14px; flex-grow: 1">KEYS · C minor · from C4</span>
+<span style="font-size: 12px; color: #C9CBD1; padding: 6px 10px; border: 1px solid #2E313A; border-radius: 8px"><b>Z</b> / <b>X</b> octave</span>
+<span style="font-size: 12px; color: #C9CBD1; padding: 6px 10px; border: 1px solid #2E313A; border-radius: 8px"><b>`</b> hold note</span>
+<span style="font-size: 12px; color: #C9CBD1; padding: 6px 10px; border: 1px solid #2E313A; border-radius: 8px">Scale only</span>
+</div>
+<div style="position: relative; height: 128px">
+<div style="display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; height: 128px">
+<sc-for list="{{whites}}" as="k" hint-placeholder-count="8">
+<button style="{{k.style}}">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; font-weight: 700">{{k.key}}</span>
+<span style="font-size: 10px; opacity: 0.75">{{k.note}}</span>
+</button>
+</sc-for>
+</div>
+<sc-for list="{{blacks}}" as="k" hint-placeholder-count="5">
+<button style="{{k.style}}">
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 700">{{k.key}}</span>
+<span style="font-size: 9px; opacity: 0.8">{{k.note}}</span>
+</button>
+</sc-for>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; color: #9A9DA6">
+<span style="padding: 6px 10px; border: 1px solid #2E313A; border-radius: 8px"><b style="color: #ECEDEF">Space</b> play</span>
+<span style="padding: 6px 10px; border: 1px solid #2E313A; border-radius: 8px"><b style="color: #ECEDEF">Tab</b> next track</span>
+<span style="padding: 6px 10px; border: 1px solid #2E313A; border-radius: 8px"><b style="color: #ECEDEF">1–8</b> hold FX</span>
+<span style="padding: 6px 10px; border: 1px solid #2E313A; border-radius: 8px"><b style="color: #ECEDEF">R</b> capture</span>
+<span style="padding: 6px 10px; border: 1px solid #2E313A; border-radius: 8px"><b style="color: #ECEDEF">/</b> ask the assistant</span>
+<span style="padding: 6px 10px; border: 1px solid #2E313A; border-radius: 8px">MIDI keyboard works too</span>
+</div>
+</div>
+</main>
+
+<aside style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 12px">
+<div style="background: #1A1C21; border: 1px solid #262930; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="font-weight: 700; flex-grow: 1">Capture a melody</span>
+<span style="font-size: 11px; color: #9A9DA6">Input: USB interface</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px">
+<button style="height: 36px; border-radius: 10px; border: 1px solid {{accent}}; background: {{accent}}; color: #121316; font-size: 12px; font-weight: 700">Voice</button>
+<button style="height: 36px; border-radius: 10px; border: 1px solid #2E313A; background: #1E2026; color: #ECEDEF; font-size: 12px">Whistle</button>
+<button style="height: 36px; border-radius: 10px; border: 1px solid #2E313A; background: #1E2026; color: #ECEDEF; font-size: 12px">Guitar</button>
+<button style="height: 36px; border-radius: 10px; border: 1px solid #2E313A; background: #1E2026; color: #ECEDEF; font-size: 12px">Chords</button>
+<button style="height: 36px; border-radius: 10px; border: 1px solid #2E313A; background: #1E2026; color: #ECEDEF; font-size: 12px">MIDI</button>
+</div>
+<div style="display: flex; align-items: center; gap: 8px">
+<button aria-label="Start capture" style="width: 44px; height: 44px; border-radius: 22px; border: none; background: #FF6B5E; display: flex; align-items: center; justify-content: center"><span style="width: 14px; height: 14px; border-radius: 7px; background: #121316"></span></button>
+<span style="font-size: 13px; color: #C9CBD1; flex-grow: 1">Hold R or a pedal to capture over the loop</span>
+</div>
+<div style="display: flex; align-items: center; gap: 6px">
+<button aria-label="Transpose down" style="width: 36px; height: 36px; border-radius: 10px; border: 1px solid #2E313A; background: #1E2026; color: #ECEDEF">−</button>
+<span style="flex-grow: 1; text-align: center; font-size: 12px; padding: 9px 0; border-radius: 10px; background: #1F3442; color: #CFEBFA">+3 st · A min → C min</span>
+<button aria-label="Transpose up" style="width: 36px; height: 36px; border-radius: 10px; border: 1px solid #2E313A; background: #1E2026; color: #ECEDEF">+</button>
+<button style="height: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid #2E313A; background: #1E2026; color: #ECEDEF; font-size: 12px">In key</button>
+</div>
+</div>
+<div style="background: #1A1C21; border: 1px solid #262930; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; align-items: baseline; gap: 8px">
+<span style="font-weight: 700; flex-grow: 1">BASS · FM</span>
+<span style="font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #C9CBD1">ALG 05</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{ops}}" as="o" hint-placeholder-count="6">
+<div style="{{o.style}}"><span style="font-size: 10px; font-family: 'IBM Plex Mono', monospace">OP{{o.n}}</span><span style="font-weight: 700">×{{o.ratio}}</span></div>
+</sc-for>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; text-align: center; font-size: 11px; color: #C9CBD1">
+<span style="padding: 8px 0; border-radius: 8px; background: #22252B">Tone</span><span style="padding: 8px 0; border-radius: 8px; background: #22252B">Decay</span><span style="padding: 8px 0; border-radius: 8px; background: #22252B">Drive</span><span style="padding: 8px 0; border-radius: 8px; background: #22252B">Space</span>
+</div>
+<label for="d-describe" style="font-size: 12px; font-weight: 700; color: #9FD9F7">Describe a sound</label>
+<input id="d-describe" value="rubbery bass with a short pluck" style="height: 40px; border-radius: 10px; border: 1px solid #2B4A5C; background: #121A20; color: #ECEDEF; padding: 0 12px; font-size: 13px">
+</div>
+
+<div style="background: #172129; border: 1px solid #2B4A5C; border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+<span style="font-weight: 700; color: #9FD9F7; font-size: 14px">Up next</span>
+<sc-for list="{{ideas}}" as="i" hint-placeholder-count="3">
+<div style="display: flex; align-items: center; gap: 8px">
+<span style="flex-grow: 1; font-size: 13px">{{i}}</span>
+<button style="height: 36px; padding: 0 10px; border-radius: 10px; border: 1px solid #2B4A5C; background: #1F3442; color: #CFEBFA; font-size: 12px">Queue</button>
+</div>
+</sc-for>
+</div>
+</aside>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FFB547","options":["#FFB547","#5CC8FF","#B8F07A","#FF8FB1"]},"$preview":{"width":1280,"height":980}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const accent = this.props.accent ?? '#FFB547';
+    const secDefs = [['Intro', 4], ['A', 8], ['A2', 8], ['Fill', 1], ['B', 8]];
+    const sections = secDefs.map((s, i) => ({
+      name: s[0], bars: s[1],
+      style: 'flex: ' + (s[1] === 1 ? '0.5' : '1') + ' 1 0; min-width: 0; height: 48px; border-radius: 10px; padding: 6px 10px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: center; ' +
+        (i === 1 ? 'background: #2A2418; border: 2px solid ' + accent + ';' : 'background: #1E2026; border: 1px solid #2E313A;')
+    }));
+    const pats = [
+      ['KICK','drum','x...x...x...x..x'],
+      ['SNARE','drum','....x.......x...'],
+      ['HATS','drum','x.x.x.xxx.x.x.x.'],
+      ['PERC','sample','..x....x..x.....'],
+      ['BASS','FM','x..x..x...x.x...'],
+      ['KEYS','FM','x.......x.......'],
+      ['PAD','FM','x...............'],
+      ['VOX','sample','........x.......']
+    ];
+    const head = 5, sel = 4;
+    const rows = pats.map((p, r) => ({
+      name: p[0], kind: p[1],
+      nameStyle: 'width: 120px; flex-shrink: 0; font-size: 13px; font-weight: 700; padding: 6px 8px; border-radius: 8px; ' + (r === sel ? 'background: ' + accent + '; color: #121316;' : 'color: #ECEDEF;'),
+      cells: p[2].split('').map((ch, i) => {
+        const on = ch === 'x';
+        const bg = on ? (r === sel ? accent : '#C9CBD1') : (i % 4 === 0 ? '#262930' : '#1F2126');
+        return { style: 'height: 28px; border-radius: 6px; background: ' + bg + '; ' + (i === head ? 'outline: 2px solid #5CC8FF; outline-offset: -2px;' : '') };
+      })
+    }));
+    const opDefs = [[2,'3.50',0],[4,'1.00',0],[6,'7.00',0],[1,'1.00',1],[3,'2.01',1],[5,'0.50',1]];
+    const ops = opDefs.map((o, i) => ({
+      n: o[0], ratio: o[1],
+      style: 'height: 48px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; ' +
+        (i === 0 ? 'background: ' + accent + '; color: #121316;' : (o[2] ? 'background: #2A2D35; color: #ECEDEF;' : 'background: #22252B; color: #ECEDEF;'))
+    }));
+
+    const wKeys = ['A','S','D','F','G','H','J','K'], wNotes = ['C','D','E','F','G','A','B','C'], wIn = [1,1,0,1,1,0,0,1];
+    const whites = wKeys.map((k, i) => ({
+      key: k, note: wNotes[i],
+      style: 'border-radius: 0 0 10px 10px; border: none; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px; padding-bottom: 10px; color: #121316; background: ' + (i === 4 ? accent : (wIn[i] ? '#E6E7EA' : '#A9ACB4')) + ';'
+    }));
+    const bAt = [0,1,3,4,5], bKeys = ['W','E','T','Y','U'], bNotes = ['C♯','E♭','F♯','A♭','B♭'], bIn = [0,1,0,1,1];
+    const blacks = bAt.map((w, i) => ({
+      key: bKeys[i], note: bNotes[i],
+      style: 'position: absolute; top: 0; height: 76px; width: 7%; left: calc(' + (((w + 1) / 8) * 100).toFixed(2) + '% - 3.5%); border-radius: 0 0 8px 8px; border: 1px solid #121316; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 1px; padding-bottom: 8px; color: #ECEDEF; background: ' + (bIn[i] ? '#4A4F5C' : '#16171B') + ';'
+    }));
+    return {
+      accent, sections, rows, ops, whites, blacks,
+      ideas: ['A2: hats go double-time in the last bar', 'Fill: snare roll with a filter rise into B', 'B: bass follows Fm, A♭, B♭']
+    };
+  }
+}
+</script>
+</body>
+</html>

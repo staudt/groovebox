@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>FX sheet</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#0B0C0E}
+a{color:#ECEDEF;text-decoration:none}a:hover{color:#FFFFFF}
+button{font:inherit}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; box-sizing: border-box; background: #0B0C0E; color: #ECEDEF; font-family: 'Space Grotesk', system-ui, sans-serif; display: flex; flex-direction: column; overflow: hidden">
+
+<div style="padding: 16px 16px 0 16px; display: flex; flex-direction: column; gap: 10px; opacity: 0.35">
+<div style="display: flex; align-items: center; gap: 8px; height: 44px">
+<span style="font-size: 16px; font-weight: 700; flex-grow: 1">[Project name]</span>
+<span style="height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid #2E313A; display: flex; align-items: center; font-family: 'IBM Plex Mono', monospace; font-size: 13px">92 BPM</span>
+<span style="width: 44px; height: 44px; border-radius: 12px; background: {{accent}}"></span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+<span style="height: 76px; border-radius: 12px; background: #24272E"></span><span style="height: 76px; border-radius: 12px; background: #1C1E23"></span><span style="height: 76px; border-radius: 12px; background: {{accent}}"></span><span style="height: 76px; border-radius: 12px; background: #1C1E23"></span>
+<span style="height: 76px; border-radius: 12px; background: #24272E"></span><span style="height: 76px; border-radius: 12px; background: {{accent}}"></span><span style="height: 76px; border-radius: 12px; background: #1C1E23"></span><span style="height: 76px; border-radius: 12px; background: #1C1E23"></span>
+</div>
+</div>
+
+<div style="margin-top: auto; background: #1A1C21; border-top: 1px solid #2E313A; border-radius: 24px 24px 0 0; padding: 10px 16px 14px 16px; display: flex; flex-direction: column; gap: 12px">
+<span style="align-self: center; width: 40px; height: 5px; border-radius: 3px; background: #3A3E48"></span>
+
+<div style="display: flex; align-items: center; gap: 6px">
+<span style="font-size: 17px; font-weight: 700; flex-grow: 1">FX</span>
+<sc-for list="{{targets}}" as="t" hint-placeholder-count="2">
+<button onClick="{{t.pick}}" style="{{t.style}}">{{t.label}}</button>
+</sc-for>
+<button onClick="{{toggleLatch}}" style="{{latchStyle}}">Latch</button>
+<button onClick="{{toggleRec}}" aria-label="Record FX moves into the pattern" style="{{recStyle}}">
+<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="4" fill="currentColor"></circle></svg>Moves</button>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px">
+<sc-for list="{{fx}}" as="f" hint-placeholder-count="12">
+<button onClick="{{f.hold}}" style="{{f.style}}">
+<span style="font-size: 13px; font-weight: 700">{{f.label}}</span>
+<span style="font-size: 10px; font-family: 'IBM Plex Mono', monospace; opacity: 0.8">{{f.sub}}</span>
+</button>
+</sc-for>
+</div>
+
+<div style="position: relative; height: 104px; border-radius: 14px; background: #121316; border: 1px solid #262930; overflow: hidden">
+<svg width="358" height="104" viewBox="0 0 358 104" style="position: absolute; left: 0; top: 0" aria-hidden="true">
+<path d="M89.5 0 V104 M179 0 V104 M268.5 0 V104 M0 52 H358" stroke="#23262D"></path>
+<circle cx="214" cy="38" r="18" fill="#FF6B5E" fill-opacity="0.2"></circle>
+<circle cx="214" cy="38" r="8" fill="#FF6B5E"></circle>
+</svg>
+<span style="position: absolute; left: 10px; bottom: 8px; font-size: 10px; color: #9A9DA6; font-family: 'IBM Plex Mono', monospace">X  {{xLabel}}</span>
+<span style="position: absolute; left: 10px; top: 8px; font-size: 10px; color: #9A9DA6; font-family: 'IBM Plex Mono', monospace">Y  {{yLabel}}</span>
+<span style="position: absolute; right: 10px; top: 8px; font-size: 10px; color: #9A9DA6">slide while holding</span>
+</div>
+</div>
+
+<nav style="display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); height: 68px; border-top: 1px solid #23262D; background: #16171B">
+<a href="Main.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; color: #9A9DA6">
+<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="2" width="7" height="7" rx="1.5"></rect><rect x="11" y="2" width="7" height="7" rx="1.5"></rect><rect x="2" y="11" width="7" height="7" rx="1.5"></rect><rect x="11" y="11" width="7" height="7" rx="1.5"></rect></svg>Play</a>
+<a href="Sound.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; color: #9A9DA6">
+<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M1 10 C4 2 6 2 8 10 S12 18 14 10 S17 4 19 10"></path></svg>Sound</a>
+<a href="Main.dc.html" aria-label="Close FX" style="display: flex; align-items: center; justify-content: center"><span style="width: 54px; height: 42px; border-radius: 14px; background: #FF6B5E; color: #121316; font-weight: 700; font-size: 15px; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 3px #16171B, 0 0 0 5px #FF6B5E">FX</span></a>
+<a href="Perform.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; color: #9A9DA6">
+<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="2" y="2" width="16" height="16" rx="2"></rect><circle cx="12" cy="8" r="2.5"></circle></svg>Perform</a>
+<a href="Song.dc.html" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; font-size: 12px; color: #9A9DA6">
+<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 5 h6 M10 5 h8 M2 10 h10 M14 10 h4 M2 15 h4 M8 15 h10"></path></svg>Song</a>
+</nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"accent":{"editor":"color","default":"#FFB547","options":["#FFB547","#5CC8FF","#B8F07A","#FF8FB1"]},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { target: 0, latch: false, rec: false, on: 1 };
+  }
+  renderVals() {
+    const accent = this.props.accent ?? '#FFB547';
+    const defs = [
+      ['Stutter','1/4','length','feedback'],['Stutter','1/8','length','feedback'],['Stutter','1/16','length','feedback'],['Stutter','1/32','length','feedback'],
+      ['Tape stop','slow','speed','pitch'],['Low sweep','filter','cutoff','resonance'],['High sweep','filter','cutoff','resonance'],['Lo-fi','crush','bits','rate'],
+      ['Gate','1/16','rate','depth'],['Reverse','1 beat','length','mix'],['Reverb','throw','size','mix'],['Delay','throw','time','feedback']
+    ];
+    const fx = defs.map((d, i) => {
+      const on = i === this.state.on;
+      return {
+        label: d[0], sub: d[1],
+        hold: () => this.setState({ on: on ? -1 : i }),
+        style: 'height: 60px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; cursor: pointer; ' +
+          (on ? 'background: #FF6B5E; color: #121316; border: 1px solid #FF6B5E;' : 'background: #24272E; color: #ECEDEF; border: 1px solid #343843;')
+      };
+    });
+    const cur = defs[this.state.on] || ['', '', 'amount', 'mix'];
+    const targets = ['Master', 'KEYS'].map((l, i) => {
+      const on = i === this.state.target;
+      return {
+        label: l,
+        pick: () => this.setState({ target: i }),
+        style: 'height: 34px; padding: 0 10px; border-radius: 8px; font-size: 12px; cursor: pointer; ' +
+          (on ? 'background: #ECEDEF; color: #121316; border: 1px solid #ECEDEF;' : 'background: transparent; color: #C9CBD1; border: 1px solid #343843;')
+      };
+    });
+    return {
+      accent, fx, targets,
+      xLabel: cur[2].toUpperCase(), yLabel: cur[3].toUpperCase(),
+      toggleLatch: () => this.setState({ latch: !this.state.latch }),
+      latchStyle: 'height: 34px; padding: 0 10px; border-radius: 8px; font-size: 12px; cursor: pointer; ' +
+        (this.state.latch ? 'background: #ECEDEF; color: #121316; border: 1px solid #ECEDEF;' : 'background: transparent; color: #C9CBD1; border: 1px solid #343843;'),
+      toggleRec: () => this.setState({ rec: !this.state.rec }),
+      recStyle: 'display: flex; align-items: center; gap: 5px; height: 34px; padding: 0 10px; border-radius: 8px; font-size: 12px; cursor: pointer; ' +
+        (this.state.rec ? 'background: #FF6B5E; color: #121316; border: 1px solid #FF6B5E;' : 'background: transparent; color: #FF8F7F; border: 1px solid #5A2E28;')
+    };
+  }
+}
+</script>
+</body>
+</html>
