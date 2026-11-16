@@ -67,7 +67,7 @@ export function Macros() {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '8px', marginTop: '4px' }}>
       {macros.map((m, i) => (
-        <Knob key={i} index={i} label={m.label} value={m.value} color={i === 3 ? 'var(--assist)' : 'var(--accent)'} inert={i === 3} />
+        <Knob key={i} index={i} label={m.label} value={m.value} color={i === 3 ? 'var(--assist)' : 'var(--accent)'} inert={false} />
       ))}
     </div>
   );

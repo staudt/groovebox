@@ -3,6 +3,7 @@
 import { effect } from '@preact/signals';
 import workletUrl from './worklet.ts?worker&url';
 import type { EngineCommand, EngineEvent } from './protocol';
+import type { FxId } from './fx/ids';
 import { currentPattern, playing, project, selectedTrack, soloSelected } from '../store/project';
 import type { DrumParams, FmPatch, Project, Track } from '../store/types';
 import { ensureRunning, getAudioContext } from '../platform/audio';
@@ -77,6 +78,7 @@ function syncAll(p: Project): void {
     post({ type: 'trackKind', track: i, kind: engineKind(t) });
     postParams(t, i);
     if (t.kind === 'fm') post({ type: 'macros', track: i, values: macroValues(t) });
+    post({ type: 'sends', track: i, a: t.macros[3].value, b: 0 });
     post({ type: 'pattern', track: i, pattern: t.patterns[currentPattern.value] });
     post({ type: 'mute', track: i, mute: t.mute });
   });
@@ -99,6 +101,7 @@ function startSync(): void {
         if (t.kind !== o.kind) post({ type: 'trackKind', track: i, kind: engineKind(t) });
         if (t.params !== o.params) postParams(t, i);
         if (t.macros !== o.macros && t.kind === 'fm') post({ type: 'macros', track: i, values: macroValues(t) });
+        if (t.macros[3].value !== o.macros[3].value) post({ type: 'sends', track: i, a: t.macros[3].value, b: 0 });
         if (t.patterns[pat] !== o.patterns[prevPat] || pat !== prevPat) post({ type: 'pattern', track: i, pattern: t.patterns[pat] });
         if (t.mute !== o.mute) post({ type: 'mute', track: i, mute: t.mute });
       });
@@ -155,6 +158,20 @@ export async function previewNotes(track: number, notes: readonly number[], vel 
   await startAudio();
   for (const n of notes) post({ type: 'noteOn', track, note: n, vel });
   setTimeout(() => notes.forEach((n) => post({ type: 'noteOff', track, note: n })), ms);
+}
+
+/**
+ * Press or release a punch-in effect. target: -1 = master, else a track index.
+ * x/y (0..1) are the XY pad position; omitted = the effect's default.
+ */
+export async function fxPress(fx: FxId, on: boolean, target: number, x?: number, y?: number): Promise<void> {
+  if (on) await startAudio();
+  post({ type: 'fx', fx, on, target, ...(x !== undefined && y !== undefined ? { x, y } : {}) });
+}
+
+/** Move a held effect's XY parameters (0..1). */
+export function fxXY(fx: FxId, x: number, y: number): void {
+  post({ type: 'fxXY', fx, x, y });
 }
 
 /** Audition a drum track immediately (pads, step preview). */

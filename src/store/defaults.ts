@@ -24,17 +24,17 @@ export function drumParams(model: DrumModel): DrumParams {
   }
 }
 
-function macros(p: DrumParams | null): Track['macros'] {
+function macros(p: DrumParams | null, space = 0): Track['macros'] {
   const m = (label: string, value: number, targets: string[]): MacroMap => ({ label, value, targets });
   return [
     m('Tone', p?.tone ?? 0.5, ['tone']),
     m('Decay', p?.decay ?? 0.5, ['decay']),
     m('Drive', p?.drive ?? 0.2, ['drive']),
-    m('Space', 0, []), // reverb send arrives with the mixer (Phase 4)
+    m('Space', space, []), // reverb send (send A)
   ];
 }
 
-function makeTrack(i: number, name: string, kind: TrackKind, model: DrumModel | null, pat: string, preset = 'Init'): Track {
+function makeTrack(i: number, name: string, kind: TrackKind, model: DrumModel | null, pat: string, preset = 'Init', space = 0): Track {
   const params = model ? drumParams(model) : kind === 'fm' ? presetByName(preset) : { kind: 'sampler' as const, name: 'Empty' };
   return {
     id: `t${i}`,
@@ -42,7 +42,7 @@ function makeTrack(i: number, name: string, kind: TrackKind, model: DrumModel | 
     kind,
     patterns: patterns(pat),
     params,
-    macros: macros(model ? (params as DrumParams) : null),
+    macros: macros(model ? (params as DrumParams) : null, space),
     mute: false,
   };
 }
@@ -60,8 +60,8 @@ export function defaultProject(): Project {
       makeTrack(1, 'SNARE', 'drum', 'snare', '. . . . x . . . . . . . x . . x40'),
       makeTrack(2, 'HATS', 'drum', 'hat', 'x x50 x x50 x x50 x x50 x x50 x x50 x x50 x x50'),
       makeTrack(3, 'BASS', 'fm', null, 'C2 . C2 . . Eb2 . . Ab1 . Ab1 . . G1 ~ .', 'Round Bass'),
-      makeTrack(4, 'KEYS', 'fm', null, '', 'Electric Piano'),
-      makeTrack(5, 'PAD', 'fm', null, 'Cm* ~ ~ ~ ~ ~ ~ ~ Ab* ~ ~ ~ ~ ~ ~ ~', 'Soft Pad'),
+      makeTrack(4, 'KEYS', 'fm', null, '', 'Electric Piano', 0.2),
+      makeTrack(5, 'PAD', 'fm', null, 'Cm* ~ ~ ~ ~ ~ ~ ~ Ab* ~ ~ ~ ~ ~ ~ ~', 'Soft Pad', 0.35),
       // PERC is a sampler track in the mockup; until the sampler lands it plays the synth perc voice.
       makeTrack(6, 'PERC', 'drum', 'perc', '. . . . . . . x60 . . x50 . . . . .'),
       makeTrack(7, 'VOX', 'sampler', null, ''),
