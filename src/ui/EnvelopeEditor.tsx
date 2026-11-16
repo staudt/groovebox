@@ -58,7 +58,7 @@ export function EnvelopeEditor(props: { op: FmOperator; onChange: (c: EnvChange,
   };
 
   return (
-    <svg class="env" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Envelope: drag the points to shape attack, decay, sustain and release" style={{ touchAction: 'none' }}>
+    <svg class="env" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Envelope: drag the points to shape attack, decay, sustain and release" style={{ touchAction: 'pan-y' }}>
       <path d={`M0 ${H - 0.5} H${W}`} stroke="#2A2D34" />
       <path d={fill} fill="rgba(255,181,71,0.12)" />
       <path d={line} fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" />
@@ -72,7 +72,7 @@ export function EnvelopeEditor(props: { op: FmOperator; onChange: (c: EnvChange,
           aria-valuemax={1}
           aria-valuenow={props.op[(['a', 'd', 's', 'r'] as const)[i]!]}
           data-testid={`env-handle-${i}`}
-          style={{ cursor: 'grab' }}
+          style={{ cursor: 'grab', touchAction: 'none' }}
           onPointerDown={(e) => {
             (e.currentTarget as SVGElement).setPointerCapture(e.pointerId);
             g.current = { which: i, first: true, x0: local(e)[0], r0: props.op.r };

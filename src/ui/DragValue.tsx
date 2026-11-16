@@ -1,5 +1,7 @@
 import { useRef } from 'preact/hooks';
 
+const DEAD_PX = 6;
+
 /**
  * Horizontal-drag numeric control (touch and mouse), 44 px tall, keyboard adjustable.
  * `onChange(v, merge)`: merge is false for the first change of a gesture, true after
@@ -18,7 +20,9 @@ export function DragValue(props: {
   onCommit?: () => void;
   testId?: string;
 }) {
-  const g = useRef({ active: false, x0: 0, v0: 0, first: true, last: NaN });
+  // `engaged`: the gesture is a sideways drag (past DEAD_PX, mostly horizontal). Until then a
+  // vertical swipe can still become a page scroll (touch-action: pan-y), so nothing changes.
+  const g = useRef({ active: false, engaged: false, x0: 0, y0: 0, v0: 0, first: true, last: NaN });
   const snap = (v: number) => {
     const s = Math.round((v - props.min) / props.step) * props.step + props.min;
     return Math.min(props.max, Math.max(props.min, Math.round(s * 1e6) / 1e6));
@@ -44,11 +48,17 @@ export function DragValue(props: {
       onPointerDown={(e) => {
         const el = e.currentTarget as HTMLElement;
         el.setPointerCapture(e.pointerId);
-        g.current = { active: true, x0: e.clientX, v0: props.value, first: true, last: props.value };
+        g.current = { active: true, engaged: false, x0: e.clientX, y0: e.clientY, v0: props.value, first: true, last: props.value };
       }}
       onPointerMove={(e) => {
         const s = g.current;
         if (!s.active) return;
+        if (!s.engaged) {
+          const dx = Math.abs(e.clientX - s.x0);
+          if (dx < DEAD_PX || dx < Math.abs(e.clientY - s.y0)) return;
+          s.engaged = true;
+          s.x0 = e.clientX; // start from here so the dead zone doesn't jump the value
+        }
         const per = (props.max - props.min) / (props.span ?? 200);
         emit(snap(s.v0 + (e.clientX - s.x0) * per));
       }}
@@ -62,7 +72,7 @@ export function DragValue(props: {
         const d = e.key === 'ArrowRight' || e.key === 'ArrowUp' ? 1 : e.key === 'ArrowLeft' || e.key === 'ArrowDown' ? -1 : 0;
         if (!d) return;
         e.preventDefault();
-        g.current = { active: false, x0: 0, v0: props.value, first: true, last: NaN };
+        g.current = { active: false, engaged: false, x0: 0, y0: 0, v0: props.value, first: true, last: NaN };
         emit(snap(props.value + d * props.step));
         props.onCommit?.();
       }}

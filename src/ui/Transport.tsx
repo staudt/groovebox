@@ -52,7 +52,7 @@ function TempoSheet(props: { onClose: () => void }) {
         <div
           class="mono noselect"
           aria-label={`${p.bpm} BPM, drag sideways to change`}
-          style={{ width: '140px', height: '64px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--raised)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', touchAction: 'none', cursor: 'ew-resize' }}
+          style={{ width: '140px', height: '64px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--raised)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', touchAction: 'pan-y', cursor: 'ew-resize' }}
           onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); drag.current = { x: e.clientX, bpm: project.value.bpm, first: true }; }}
           onPointerMove={(e) => {
             const d = drag.current;

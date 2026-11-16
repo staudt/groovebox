@@ -136,7 +136,7 @@ export function MelodicGrid() {
     <>
       <div
         ref={gridEl}
-        style={{ display: 'grid', gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))`, gap: '8px', touchAction: 'none' }}
+        style={{ display: 'grid', gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))`, gap: '8px', touchAction: 'pan-y' }}
         onPointerMove={onMove}
         onPointerUp={onUp}
         onPointerCancel={onCancel}
@@ -160,7 +160,7 @@ export function MelodicGrid() {
               onContextMenu={(e) => e.preventDefault()}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); tap(i); } }}
               style={{
-                touchAction: 'none',
+                touchAction: 'pan-y',
                 aspectRatio: '1 / 0.78', borderRadius: '12px',
                 background: hold ? 'rgba(255,181,71,0.44)' : on ? 'var(--accent)' : beat ? 'var(--step-beat)' : 'var(--step-off)',
                 border: `1px solid ${on ? 'var(--accent)' : 'var(--step-border)'}`,

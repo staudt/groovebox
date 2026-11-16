@@ -28,7 +28,7 @@
 .env-labels { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; font-family: var(--font-mono); font-size: 11px; color: var(--muted); text-align: center; }
 .env-labels b { color: var(--text-2); font-weight: 500; }
 .sn-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-.dv { height: 48px; border-radius: 10px; border: 1px solid var(--border); background: var(--raised); display: flex; flex-direction: column; justify-content: center; align-items: center; touch-action: none; cursor: ew-resize; min-width: 0; }
+.dv { height: 48px; border-radius: 10px; border: 1px solid var(--border); background: var(--raised); display: flex; flex-direction: column; justify-content: center; align-items: center; touch-action: pan-y; cursor: ew-resize; min-width: 0; }
 .dv-label { font-size: 10px; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; }
 .dv-val { font-size: 15px; font-weight: 500; }
 .sn-ratio { display: flex; gap: 6px; align-items: stretch; grid-column: 1 / -1; }
