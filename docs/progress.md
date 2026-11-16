@@ -1,5 +1,27 @@
 # Progress
 
+## Phase 2: FM synth (2026-11-16) — awaiting phone check
+
+**Built**
+- FM engine (`src/engine/fm/`): 6 operators, the 32 DX7-style algorithms (written from the published diagrams), feedback, ratio/detune/level/ADSR/velocity sensitivity per operator, 8 notes of polyphony per track with click-free voice stealing, sine table lookup, silent operators skipped.
+- Sequencing: note steps, holds (legato until the last hold), chord steps (up to 6 notes), live notes from the keyboard; Stop releases sequenced notes.
+- Sound screen per `Sound.dc.html`: patch browser (9 factory patches + your saved ones), Random, Save, algorithm diagram for all 32 algorithms, operator editor, draggable envelope, drum parameter panel, piano keyboard drawer with Hold. "Describe a sound" is shown disabled until Phase 6.
+- Play screen for melodic tracks: note / hold / chord steps, drag right to hold, long-press note and chord picker (diatonic triads and sevenths), scale keyboard drawer; keys write into the selected step. Desktop musical typing (A–K, W E T Y U, Z/X octave, backtick hold).
+- Macros on FM tracks: Tone (modulator levels), Decay (envelope times), Drive.
+- **Pulled forward from Phase 4 (user decision):** project autosave and restore on reload (IndexedDB), plus the user patch library.
+- **Added on request:** a Solo toggle at the left of the track strip that isolates the track being edited and follows the selection (listening aid; not saved, not undoable).
+- Default song now has a bass line (Round Bass) and pad chords (Soft Pad) in C minor.
+
+**Verified automatically**
+- 167 unit tests: FM pitch within 5 cents (several notes, ratios, detune), every operator of all 32 algorithms changes the output iff it reaches a carrier, FM and feedback add harmonics, attack/decay/sustain/release timing, holds as legato, chord notes present, note onsets within 1 ms, no stuck notes after Stop, 14 rapid notes steal voices without clicks, every factory patch plays under 0 dBFS without clicks, solo isolates and fades cleanly, theory (scales, diatonic chords), persistence (project and patch library), algorithm diagram layout for all 32.
+- 64 Playwright tests at 390x844 and 1280x800, including Sound screen editing, saving a patch and finding it after reload, melodic editing, the picker and solo.
+- CPU: headless desktop Chromium, worst case (4 drum tracks on every 16th + 8 FM voices with all 6 operators) = 6.3 % of one core. `bench.html` on the deployed site measures the real phone.
+
+**Needs a human**
+- Run https://staudt.github.io/groovebox/bench.html on the phone (decides whether FM needs WASM later).
+- By ear: all 9 FM presets (they were written without listening), envelope and macro response, chords, holds, stealing when playing many keys.
+- By touch: drag-right holds across rows, long-press picker, envelope handles, keyboard multi-touch, Solo.
+
 ## Phase 1: Engine skeleton (2026-11-16) — accepted on the phone
 
 **Built**
