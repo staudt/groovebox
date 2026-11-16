@@ -1,6 +1,6 @@
 # Progress
 
-## Phase 1: Engine skeleton (2026-11-16) — awaiting phone check
+## Phase 1: Engine skeleton (2026-11-16) — accepted on the phone
 
 **Built**
 - Vite + TS strict + Preact/signals, installable PWA (manifest, icons, build-time service worker; offline after first load, verified with the network cut).
