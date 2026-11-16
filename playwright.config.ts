@@ -1,6 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const PORT = 4174;
+// PW_PORT lets two test runs (e.g. parallel agents) use separate preview servers.
+const PORT = Number(process.env.PW_PORT ?? 4174);
 
 export default defineConfig({
   testDir: 'tests/e2e',
