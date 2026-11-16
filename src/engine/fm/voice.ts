@@ -15,13 +15,17 @@ const TABLE_SIZE = 1 << TABLE_BITS;
 const SIN = new Float32Array(TABLE_SIZE + 1);
 for (let i = 0; i <= TABLE_SIZE; i++) SIN[i] = Math.sin((2 * Math.PI * i) / TABLE_SIZE);
 
-/** sin(2*pi*x) via a table with linear interpolation; x in cycles, any sign. */
+const TABLE_MASK = TABLE_SIZE - 1;
+/** Offset (in cycles) keeping table indices positive: phase is in [0, 1) and modulation stays far below this. */
+const PHASE_OFFSET = 256;
+
+/** sin(2*pi*x) via a table with linear interpolation; x in cycles, x > -PHASE_OFFSET. */
 function sinCycles(x: number): number {
-  const p = x - Math.floor(x);
-  const f = p * TABLE_SIZE;
+  const f = (x + PHASE_OFFSET) * TABLE_SIZE;
   const i = f | 0;
-  const a = SIN[i]!;
-  return a + (SIN[i + 1]! - a) * (f - i);
+  const j = i & TABLE_MASK;
+  const a = SIN[j]!;
+  return a + (SIN[j + 1]! - a) * (f - i);
 }
 
 /** Peak phase deviation (radians) produced by a modulator at full level. */
@@ -54,6 +58,9 @@ export class FmParams {
   readonly sus = new Float64Array(OPS);
   readonly velSens = new Float64Array(OPS);
   readonly modMask = new Int32Array(OPS); // bit k set = op k+1 modulates this op
+  /** Modulators of each op as a flat list: modList[k * OPS + n] for n < modCount[k] (0-based op indices). */
+  readonly modList = new Int8Array(OPS * OPS);
+  readonly modCount = new Uint8Array(OPS);
   readonly isCarrier = new Uint8Array(OPS);
   carrierCount = 1;
   fbSrc = 5; // 0-based
@@ -68,6 +75,10 @@ export class FmParams {
     this.modMask.fill(0);
     this.isCarrier.fill(0);
     for (const [m, t] of alg.mods) this.modMask[t - 1]! |= 1 << (m - 1);
+    this.modCount.fill(0);
+    for (let k = 0; k < OPS; k++) {
+      for (let j = k + 1; j < OPS; j++) if ((this.modMask[k]! >> j) & 1) this.modList[k * OPS + this.modCount[k]!++] = j;
+    }
     for (const c of alg.carriers) this.isCarrier[c - 1] = 1;
     this.carrierCount = alg.carriers.length;
     this.fbSrc = alg.fb[0] - 1;
@@ -111,6 +122,7 @@ export class FmVoice {
   private readonly velGain = new Float64Array(OPS);
   private readonly cur = new Float64Array(OPS); // smoothed op amplitude (level * macros * velocity)
   private readonly out = new Float64Array(OPS);
+  private readonly tgt = new Float64Array(OPS);
   private fb1 = 0;
   private fb2 = 0;
   private stealInc = 0;
@@ -189,48 +201,56 @@ export class FmVoice {
     const stage = this.stage;
     const o = this.out;
     const cur = this.cur;
-    const modMask = p.modMask;
+    const atkInc = this.atkInc;
+    const decK = this.decK;
+    const relK = this.relK;
+    const sus = p.sus;
+    const modList = p.modList;
+    const modCount = p.modCount;
     const isCarrier = p.isCarrier;
     const fbSrc = p.fbSrc;
     const fbDst = p.fbDst;
     const fbAmt = p.fbAmt;
     const sk = this.smoothK;
     const outGain = 0.5 / Math.sqrt(p.carrierCount);
-    // Smoothing targets are fixed for the block (params change at UI rate).
-    const tgt0 = this.targetAmp(p, 0);
-    const tgt1 = this.targetAmp(p, 1);
-    const tgt2 = this.targetAmp(p, 2);
-    const tgt3 = this.targetAmp(p, 3);
-    const tgt4 = this.targetAmp(p, 4);
-    const tgt5 = this.targetAmp(p, 5);
+
+    // Per block: smoothing targets (params change at UI rate) and which operators can be skipped.
+    // An op is skipped when it is silent (level 0, fully settled) or idle; its output is then 0.
+    let smoothing = false;
+    let activeMask = 0;
+    for (let k = 0; k < OPS; k++) {
+      const t = this.targetAmp(p, k);
+      this.tgt[k] = t;
+      if (Math.abs(cur[k]! - t) > 1e-7) smoothing = true;
+      else cur[k] = t;
+      if ((t > 0 || cur[k]! > 0) && stage[k] !== IDLE) activeMask |= 1 << k;
+      else o[k] = 0;
+    }
+    const tgt = this.tgt;
 
     for (let i = from; i < to; i++) {
-      cur[0] = cur[0]! + (tgt0 - cur[0]!) * sk;
-      cur[1] = cur[1]! + (tgt1 - cur[1]!) * sk;
-      cur[2] = cur[2]! + (tgt2 - cur[2]!) * sk;
-      cur[3] = cur[3]! + (tgt3 - cur[3]!) * sk;
-      cur[4] = cur[4]! + (tgt4 - cur[4]!) * sk;
-      cur[5] = cur[5]! + (tgt5 - cur[5]!) * sk;
+      if (smoothing) for (let k = 0; k < OPS; k++) cur[k] = cur[k]! + (tgt[k]! - cur[k]!) * sk;
       let sum = 0;
       for (let k = OPS - 1; k >= 0; k--) {
+        if (((activeMask >> k) & 1) === 0) continue;
         // Envelope.
         let e = env[k]!;
         const st = stage[k]!;
         if (st === ATTACK) {
-          e += this.atkInc[k]!;
+          e += atkInc[k]!;
           if (e >= 1) {
             e = 1;
             stage[k] = DECAY;
           }
         } else if (st === DECAY) {
-          const s = p.sus[k]!;
-          e = s + (e - s) * this.decK[k]!;
+          const s = sus[k]!;
+          e = s + (e - s) * decK[k]!;
           if (Math.abs(e - s) < 1e-5) {
             e = s;
             stage[k] = SUSTAIN;
           }
         } else if (st === RELEASE) {
-          e *= this.relK[k]!;
+          e *= relK[k]!;
           if (e < 1e-6) {
             e = 0;
             stage[k] = IDLE;
@@ -239,9 +259,10 @@ export class FmVoice {
         env[k] = e;
         // Modulation input (in cycles).
         let m = 0;
-        const mask = modMask[k]!;
-        if (mask !== 0) {
-          for (let j = k + 1; j < OPS; j++) if ((mask >> j) & 1) m += o[j]!;
+        const mc = modCount[k]!;
+        if (mc !== 0) {
+          const base = k * OPS;
+          for (let n = 0; n < mc; n++) m += o[modList[base + n]!]!;
           m *= MOD_CYCLES;
         }
         if (k === fbDst && fbAmt > 0) m += (this.fb1 + this.fb2) * 0.5 * fbAmt;
