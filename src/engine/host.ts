@@ -21,8 +21,15 @@ function post(cmd: EngineCommand): void {
   node?.port.postMessage(cmd);
 }
 
+function clearSteps(): void {
+  stepIdx.fill(-1);
+  stepTimes.fill(0);
+}
+
 function onEvent(ev: EngineEvent): void {
-  if (ev.type === 'step') {
+  if (ev.type === 'step' && ev.step < 0) {
+    clearSteps();
+  } else if (ev.type === 'step') {
     stepTimes[stepWrite] = ev.time;
     stepIdx[stepWrite] = ev.step;
     stepWrite = (stepWrite + 1) % STEP_RING;
@@ -44,7 +51,7 @@ export function audibleStep(): number {
   let bestT = -Infinity;
   for (let i = 0; i < STEP_RING; i++) {
     const t = stepTimes[i]!;
-    if (t <= now && t > bestT) {
+    if (stepIdx[i]! >= 0 && t <= now && t > bestT) {
       bestT = t;
       best = stepIdx[i]!;
     }
@@ -88,7 +95,11 @@ function startSync(): void {
     prev = p;
     prevPat = pat;
   });
-  effect(() => post({ type: 'transport', playing: playing.value }));
+  effect(() => {
+    const on = playing.value;
+    if (!on) clearSteps(); // the playhead disappears immediately, not after the engine's stop event
+    post({ type: 'transport', playing: on });
+  });
 }
 
 /** Call from a user gesture. Creates the context and engine on first call; safe to call repeatedly. */
