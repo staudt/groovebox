@@ -14,8 +14,8 @@ export default defineConfig(({ mode }) => ({
     serviceWorker(), ...(mode === 'lan' ? [basicSsl()] : [])],
   build: {
     rollupOptions: {
-      // The engine render harness page is only built for tests (`--mode test`).
-      input: (mode === 'test' ? { main: 'index.html', render: 'render.html' } : { main: 'index.html' }) as Record<string, string>,
+      // bench.html: on-device engine benchmark. render.html: engine render harness, only built for tests.
+      input: (mode === 'test' ? { main: 'index.html', bench: 'bench.html', render: 'render.html' } : { main: 'index.html', bench: 'bench.html' }) as Record<string, string>,
     },
   },
   test: {
