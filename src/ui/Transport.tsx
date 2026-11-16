@@ -30,6 +30,7 @@ function TempoSheet(props: { onClose: () => void }) {
   const p = project.value;
   const taps = useRef<number[]>([]);
   const swingFirst = useRef(true);
+  const bpmFirst = useRef(true);
   const drag = useRef<{ x: number; bpm: number; first: boolean } | null>(null);
 
   const tap = () => {
@@ -50,11 +51,7 @@ function TempoSheet(props: { onClose: () => void }) {
         <button class="btn square" aria-label="BPM down" onClick={() => apply({ type: 'setBpm', bpm: p.bpm - 1 })}>−</button>
         <div
           class="mono noselect"
-          role="slider"
-          aria-label="BPM"
-          aria-valuemin={BPM_MIN}
-          aria-valuemax={BPM_MAX}
-          aria-valuenow={p.bpm}
+          aria-label={`${p.bpm} BPM, drag sideways to change`}
           style={{ width: '140px', height: '64px', borderRadius: '12px', border: '1px solid var(--border)', background: 'var(--raised)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '32px', touchAction: 'none', cursor: 'ew-resize' }}
           onPointerDown={(e) => { (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId); drag.current = { x: e.clientX, bpm: project.value.bpm, first: true }; }}
           onPointerMove={(e) => {
@@ -69,6 +66,17 @@ function TempoSheet(props: { onClose: () => void }) {
           onPointerCancel={() => { drag.current = null; }}
         >{p.bpm}</div>
         <button class="btn square" aria-label="BPM up" onClick={() => apply({ type: 'setBpm', bpm: p.bpm + 1 })}>+</button>
+      </div>
+      <input
+        type="range" min={BPM_MIN} max={BPM_MAX} step={1} value={p.bpm} aria-label="BPM"
+        onInput={(e) => {
+          apply({ type: 'setBpm', bpm: Number(e.currentTarget.value) }, { merge: !bpmFirst.current });
+          bpmFirst.current = false;
+        }}
+        onChange={() => { bpmFirst.current = true; }}
+      />
+      <div class="row mono" style={{ justifyContent: 'space-between', fontSize: '11px', color: 'var(--muted)', marginTop: '-8px' }}>
+        <span>{BPM_MIN}</span><span>{BPM_MAX}</span>
       </div>
       <button class="btn" onClick={tap}>Tap tempo</button>
       <div>

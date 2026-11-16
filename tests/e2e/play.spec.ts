@@ -102,7 +102,7 @@ test('BPM sheet: + raises BPM, swing changes', async ({ page }) => {
   await page.getByRole('button', { name: /BPM$/ }).click();
   const dialog = page.getByRole('dialog', { name: 'Tempo' });
   await dialog.getByRole('button', { name: 'BPM up' }).click();
-  await expect(dialog.getByRole('slider', { name: 'BPM' })).toHaveAttribute('aria-valuenow', '93');
+  await expect(dialog.getByRole('slider', { name: 'BPM' })).toHaveValue('93');
   await dialog.getByRole('slider', { name: 'Swing' }).fill('60');
   await expect(dialog.getByText('60%')).toBeVisible();
   await dialog.getByRole('button', { name: 'Done' }).click();
@@ -164,4 +164,18 @@ test('Solo sits next to Euclid on Play and on the Sound screen', async ({ page }
   await header.getByRole('button', { name: 'Solo the selected track' }).click();
   await page.getByRole('button', { name: /^Sound/ }).click();
   await expect(page.getByRole('button', { name: 'Solo the selected track' })).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('BPM slider sets the tempo and one drag is one undo step', async ({ page }, info) => {
+  await page.getByRole('button', { name: /BPM$/ }).click();
+  const dialog = page.getByRole('dialog', { name: 'Tempo' });
+  const slider = dialog.getByRole('slider', { name: 'BPM' });
+  await slider.fill('150');
+  await expect(slider).toHaveValue('150');
+  await expect(dialog.getByLabel(/^150 BPM, drag/)).toBeVisible();
+  if (info.project.name === 'desktop') {
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('Control+z');
+    await expect(page.getByRole('button', { name: '92 BPM' })).toBeVisible();
+  }
 });
