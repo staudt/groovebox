@@ -311,7 +311,7 @@ export class Engine {
         if (!ts) return;
         ts.fm.tone = cmd.values[0];
         ts.fm.decayMacro = cmd.values[1];
-        if (ts.kind === KIND_FM) ts.drive = cmd.values[2];
+        if (ts.kind === KIND_FM || ts.kind === KIND_SAMPLER) ts.drive = cmd.values[2];
         break;
       }
       case 'noteOn':

@@ -115,7 +115,7 @@ function syncAll(p: Project): void {
   p.tracks.forEach((t, i) => {
     post({ type: 'trackKind', track: i, kind: engineKind(t) });
     postParams(t, i);
-    if (t.kind === 'fm') post({ type: 'macros', track: i, values: macroValues(t) });
+    if (t.kind === 'fm' || t.kind === 'sampler') post({ type: 'macros', track: i, values: macroValues(t) });
     post({ type: 'sends', track: i, a: t.macros[3].value, b: 0 });
     post({ type: 'pattern', track: i, pattern: t.patterns[currentPattern.value] });
     post({ type: 'mute', track: i, mute: t.mute });
@@ -138,7 +138,7 @@ function startSync(): void {
         if (t === o && pat === prevPat) return;
         if (t.kind !== o.kind) post({ type: 'trackKind', track: i, kind: engineKind(t) });
         if (t.params !== o.params) postParams(t, i);
-        if (t.macros !== o.macros && t.kind === 'fm') post({ type: 'macros', track: i, values: macroValues(t) });
+        if (t.macros !== o.macros && (t.kind === 'fm' || t.kind === 'sampler')) post({ type: 'macros', track: i, values: macroValues(t) });
         if (t.macros[3].value !== o.macros[3].value) post({ type: 'sends', track: i, a: t.macros[3].value, b: 0 });
         if (t.patterns[pat] !== o.patterns[prevPat] || pat !== prevPat) post({ type: 'pattern', track: i, pattern: t.patterns[pat] });
         if (t.mute !== o.mute) post({ type: 'mute', track: i, mute: t.mute });
