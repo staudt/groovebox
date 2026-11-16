@@ -28,6 +28,12 @@
 
 Decision: no WASM needed; the TypeScript engine uses about 1/7 of the 30 % budget on the phone. The desktop browser was slower than the phone, most likely CPU power saving on the laptop; worth rechecking only if desktop audio ever glitches.
 
+**Changes from phone feedback**
+- Solo moved to the screen headers (next to Rhythm on Play, next to Random/Save on Sound).
+- BPM slider (40–240) in the tempo sheet; sheets close on Escape.
+- Euclid became **Rhythm**: a live inline panel (Hits, Rotate, Shift ◀ ▶, Clear, Cancel, Done) that keeps the melody, chords and velocities and is one undo step.
+- Scrolling: vertical swipes now scroll even when they start on steps, value controls, knob labels or the envelope; sideways drags, holds, knob dials and envelope handles still drag. Covered by real-touch Playwright tests (CDP).
+
 **Needs a human**
 - By ear: all 9 FM presets (they were written without listening), envelope and macro response, chords, holds, stealing when playing many keys.
 - By touch: drag-right holds across rows, long-press picker, envelope handles, keyboard multi-touch, Solo.
