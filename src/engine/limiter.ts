@@ -13,15 +13,22 @@ export class Limiter {
   private readonly releaseK: number;
   private readonly dl: Float32Array;
   private readonly dr: Float32Array;
-  private readonly req: Float32Array; // ring of the last N+1 required gains
+  // Sliding-window minimum of the required gain over the last N+1 samples, as a monotonic deque
+  // (ring buffers of sample index and value): O(1) amortized per sample.
+  private readonly qIdx: Float64Array;
+  private readonly qVal: Float32Array;
+  private qHead = 0;
+  private qLen = 0;
+  private t = 0;
   private readonly sm: Float64Array; // ring of the last N smoothed gains (box average)
   private w = 0;
-  private reqW = 0;
   private smW = 0;
   private smSum: number;
   private g = 1;
   /** Current gain reduction (1 = none), for meters. */
   gain = 1;
+  /** Times the hard safety clamp engaged (should stay 0; tests assert it). */
+  clamped = 0;
 
   constructor(sampleRate: number, lookaheadMs = 1.5, ceiling = 0.98, releaseMs = 120) {
     this.n = Math.max(1, Math.round((lookaheadMs / 1000) * sampleRate));
@@ -29,7 +36,8 @@ export class Limiter {
     this.releaseK = 1 - Math.exp(-1 / ((releaseMs / 1000) * sampleRate));
     this.dl = new Float32Array(this.n);
     this.dr = new Float32Array(this.n);
-    this.req = new Float32Array(this.n + 1).fill(1);
+    this.qIdx = new Float64Array(this.n + 2);
+    this.qVal = new Float32Array(this.n + 2);
     this.sm = new Float64Array(this.n).fill(1);
     this.smSum = this.n;
   }
@@ -41,19 +49,27 @@ export class Limiter {
 
   process(l: Float32Array, r: Float32Array, frames: number): void {
     const n = this.n;
-    const req = this.req;
-    const reqLen = n + 1;
+    const cap = n + 2;
+    const qIdx = this.qIdx;
+    const qVal = this.qVal;
     for (let i = 0; i < frames; i++) {
       const xl = l[i]!;
       const xr = r[i]!;
       const a = Math.max(Math.abs(xl), Math.abs(xr));
-      req[this.reqW] = a > this.ceiling ? this.ceiling / a : 1;
-      this.reqW = this.reqW + 1 === reqLen ? 0 : this.reqW + 1;
-      let m = 1;
-      for (let k = 0; k < reqLen; k++) {
-        const v = req[k]!;
-        if (v < m) m = v;
+      const req = a > this.ceiling ? this.ceiling / a : 1;
+      const t = this.t++;
+      // Drop values from the back that can never be the minimum again, then append.
+      while (this.qLen > 0 && qVal[(this.qHead + this.qLen - 1) % cap]! >= req) this.qLen--;
+      const tail = (this.qHead + this.qLen) % cap;
+      qIdx[tail] = t;
+      qVal[tail] = req;
+      this.qLen++;
+      // Expire the front once it falls out of the N+1 window.
+      if (qIdx[this.qHead]! <= t - (n + 1)) {
+        this.qHead = (this.qHead + 1) % cap;
+        this.qLen--;
       }
+      const m = qVal[this.qHead]!;
       if (m < this.g) this.g = m;
       else this.g += (m - this.g) * this.releaseK;
       // Box average of the smoothed gain over the last N samples.
@@ -69,11 +85,13 @@ export class Limiter {
       this.w = this.w + 1 === n ? 0 : this.w + 1;
       let ol = yl * gain;
       let or = yr * gain;
-      // Safety net only (should never engage): hard ceiling.
-      if (ol > this.ceiling) ol = this.ceiling;
-      else if (ol < -this.ceiling) ol = -this.ceiling;
-      if (or > this.ceiling) or = this.ceiling;
-      else if (or < -this.ceiling) or = -this.ceiling;
+      // Safety net only (should never engage): hard ceiling, with a tolerance for float32 rounding.
+      const lim = this.ceiling * 1.000001;
+      if (ol > lim || ol < -lim || or > lim || or < -lim) {
+        this.clamped++;
+        ol = Math.max(-this.ceiling, Math.min(this.ceiling, ol));
+        or = Math.max(-this.ceiling, Math.min(this.ceiling, or));
+      }
       l[i] = ol;
       r[i] = or;
       this.gain = gain;
