@@ -65,6 +65,28 @@ export function audibleStep(): number {
   return best;
 }
 
+/**
+ * Audible song position in 16th steps (fractional), or -1 when stopped. Uses the latest step event
+ * and the time since it. For recording performance moves at the position the player hears.
+ */
+export function songPosition(): number {
+  if (!node) return -1;
+  const ctx = getAudioContext();
+  const now = ctx.currentTime - (ctx.outputLatency || 0);
+  let best = -1;
+  let bestT = -Infinity;
+  for (let i = 0; i < STEP_RING; i++) {
+    const t = stepTimes[i]!;
+    if (stepIdx[i]! >= 0 && t <= now && t > bestT) {
+      bestT = t;
+      best = stepIdx[i]!;
+    }
+  }
+  if (best < 0) return -1;
+  const stepDur = 60 / project.peek().bpm / 4;
+  return best + Math.min(0.999, (now - bestT) / stepDur);
+}
+
 export function readMeters(): Readonly<{ tracks: Float32Array; master: number }> {
   return meters;
 }

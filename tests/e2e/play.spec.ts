@@ -32,10 +32,8 @@ test.beforeEach(async ({ page }) => {
 test('loads cleanly with 8 tracks, KICK selected', async ({ page }) => {
   const names = ['KICK', 'SNARE', 'HATS', 'BASS', 'KEYS', 'PAD', 'PERC', 'VOX'];
   for (const n of names) await expect(page.getByRole('button', { name: new RegExp(`^${n}`) })).toBeVisible();
-  for (const n of ['VOX']) {
-    await expect(page.getByRole('button', { name: new RegExp(`^${n}`) })).toHaveAttribute('aria-disabled', 'true');
-  }
-  for (const n of ['KICK', 'SNARE', 'HATS', 'BASS', 'KEYS', 'PAD', 'PERC']) {
+  // Every track kind has an engine since Phase 3 (PERC and VOX are samplers).
+  for (const n of names) {
     await expect(page.getByRole('button', { name: new RegExp(`^${n}`) })).toHaveAttribute('aria-disabled', 'false');
   }
   await expect(page.getByRole('button', { name: /^KICK/ })).toHaveAttribute('aria-pressed', 'true');

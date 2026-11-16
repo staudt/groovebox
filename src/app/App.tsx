@@ -7,7 +7,11 @@ import { TrackStrip } from '../ui/TrackStrip';
 import { BottomNav } from '../ui/BottomNav';
 import { Play } from '../screens/Play';
 import { Sound } from '../screens/Sound';
-import { screen } from './nav';
+import { Perform } from '../screens/Perform';
+import { FxSheet } from '../screens/FxSheet';
+import { fxSheetOpen, screen } from './nav';
+import { pressFx, releaseFx, releaseAllFx } from './fxState';
+import { FX_IDS } from '../engine/fx/ids';
 
 function nextPlayable(): void {
   const tracks = project.value.tracks;
@@ -47,6 +51,36 @@ function useShortcuts(): void {
   }, []);
 }
 
+/** Desktop: keys 1 to 8 hold the first eight effects while pressed. */
+function useFxKeys(): void {
+  useEffect(() => {
+    const held = new Set<string>();
+    const fxOf = (code: string) => {
+      const m = /^(?:Digit|Numpad)([1-8])$/.exec(code);
+      return m ? FX_IDS[Number(m[1]) - 1] : undefined;
+    };
+    const down = (e: KeyboardEvent) => {
+      const el = e.target as HTMLElement | null;
+      if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      const fx = fxOf(e.code);
+      if (!fx) return;
+      e.preventDefault();
+      held.add(e.code);
+      pressFx(fx);
+    };
+    const up = (e: KeyboardEvent) => {
+      const fx = fxOf(e.code);
+      if (fx && held.delete(e.code)) releaseFx(fx);
+    };
+    const blur = () => { for (const c of held) { const fx = fxOf(c); if (fx) releaseFx(fx); } held.clear(); };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    window.addEventListener('blur', blur);
+    return () => { window.removeEventListener('keydown', down); window.removeEventListener('keyup', up); window.removeEventListener('blur', blur); releaseAllFx(); };
+  }, []);
+}
+
 /** Block pinch and double-tap zoom (iOS ignores user-scalable=no). */
 function usePreventZoom(): void {
   useEffect(() => {
@@ -60,6 +94,7 @@ function usePreventZoom(): void {
 export function App() {
   useShortcuts();
   usePreventZoom();
+  useFxKeys();
   return (
     <div class="app noselect">
       <div class="app-top">
@@ -67,9 +102,10 @@ export function App() {
         <TrackStrip />
       </div>
       <main class="app-main">
-        {screen.value === 'sound' ? <Sound /> : <Play />}
+        {screen.value === 'sound' ? <Sound /> : screen.value === 'perform' ? <Perform /> : <Play />}
       </main>
       <BottomNav />
+      {fxSheetOpen.value && <FxSheet />}
     </div>
   );
 }

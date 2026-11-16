@@ -7,6 +7,9 @@ import './ui/tokens.css';
 import './ui/ui.css';
 import { App } from './app/App';
 import { startPersistence } from './store/persist';
+import { startFxMoveRecorder } from './app/fxMoves';
+
+startFxMoveRecorder();
 
 // Restore the autosaved project before the first render (falls back to the default on any error).
 void startPersistence()
