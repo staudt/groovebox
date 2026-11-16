@@ -402,10 +402,10 @@ export class PunchChain {
         fb.reset();
       }
       if ((i & 31) === 0) {
-        // ~0.3 s glide toward the XY cutoff, coefficients every 32 samples.
-        const kk = 1 - Math.exp(-32 / (0.08 * this.sr));
-        if (low) this.lowCut += (target - this.lowCut) * kk;
-        else this.highCut += (target - this.highCut) * kk;
+        // Glide toward the XY cutoff evenly in pitch (log frequency), ~0.25 s; coefficients every 32 samples.
+        const kk = 1 - Math.exp(-32 / (0.06 * this.sr));
+        if (low) this.lowCut *= Math.pow(target / this.lowCut, kk);
+        else this.highCut *= Math.pow(target / this.highCut, kk);
         const c = low ? this.lowCut : this.highCut;
         fa.set(c, q, this.sr);
         fb.set(c, q, this.sr);
