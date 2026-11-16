@@ -10,6 +10,7 @@ import { Sheet, Stepper } from '../ui/Sheet';
 import { AlgDiagram } from '../ui/AlgDiagram';
 import { DragValue } from '../ui/DragValue';
 import { EnvelopeEditor, type EnvChange } from '../ui/EnvelopeEditor';
+import { KeyboardDrawer } from '../ui/KeyboardDrawer';
 import '../ui/sound.css';
 
 const selOp = signal(0);
@@ -162,7 +163,7 @@ function FmSound(props: { patch: FmPatch }) {
       <div class="sn-note">Arrives with the assistant (Phase 6)</div>
 
       <div class="sn-kb-slot">
-        {/* KeyboardDrawer: wired in by the integrator */}
+        <KeyboardDrawer initialLayout="piano" trackIndex={selectedTrack.value} />
       </div>
 
       {browse && <PatchBrowser patch={patch} onClose={() => setBrowse(false)} />}
