@@ -7,8 +7,14 @@ export default defineConfig(({ mode }) => ({
   base: './',
   // `pnpm dev:lan` serves https on the LAN (self-signed) so the phone gets a secure context for AudioWorklet.
   plugins: [preact(), ...(mode === 'lan' ? [basicSsl()] : [])],
+  build: {
+    rollupOptions: {
+      // The engine render harness page is only built for tests (`--mode test`).
+      input: (mode === 'test' ? { main: 'index.html', render: 'render.html' } : { main: 'index.html' }) as Record<string, string>,
+    },
+  },
   test: {
     environment: 'node',
-    include: ['src/**/*.test.ts', 'tests/unit/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'tests/unit/**/*.test.ts', 'tests/audio/**/*.test.ts'],
   },
 }));
