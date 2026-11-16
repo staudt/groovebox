@@ -207,6 +207,9 @@ function replay(from: Command[][], to: Command[][]): void {
   });
 }
 
+/** Number of entries on the undo stack (lets a tool detect whether anything else was recorded since). */
+export const undoDepth = (): number => undoStack.length;
+
 export const undo = () => replay(undoStack, redoStack);
 export const redo = () => replay(redoStack, undoStack);
 

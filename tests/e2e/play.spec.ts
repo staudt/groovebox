@@ -84,20 +84,6 @@ test('long-press opens the velocity/chance editor', async ({ page }) => {
   await expect(step(page, 1)).toContainText('50%');
 });
 
-test('Euclid applies 5 hits to HATS starting at step 1', async ({ page }) => {
-  await page.getByRole('button', { name: /^HATS/ }).click();
-  await expect(page.getByText('HATS · 16 steps')).toBeVisible();
-  await page.getByRole('button', { name: 'Euclid', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Euclid' });
-  await dialog.getByRole('button', { name: 'Hits up' }).click(); // default 4 -> 5
-  await expect(dialog.getByLabel('Preview')).toHaveText(/^x[x.]{15}$/);
-  await expect(dialog.getByLabel('Preview')).toHaveText(/^(?:[^x]*x){5}[^x]*$/);
-  await dialog.getByRole('button', { name: 'Apply' }).click();
-  await expect(dialog).toBeHidden();
-  await expect.poll(() => hitCount(page)).toBe(5);
-  expect((await hitSteps(page))[0]).toBe(1);
-});
-
 test('BPM sheet: + raises BPM, swing changes', async ({ page }) => {
   await page.getByRole('button', { name: /BPM$/ }).click();
   const dialog = page.getByRole('dialog', { name: 'Tempo' });
@@ -146,19 +132,8 @@ test('no horizontal page scroll', async ({ page }) => {
   expect(ok).toBe(true);
 });
 
-test('Euclid on a melodic track writes notes, not drum hits', async ({ page }) => {
-  await page.locator('.strip').getByRole('button', { name: /^KEYS/ }).click();
-  await expect(page.getByText('KEYS · 16 steps')).toBeVisible();
-  await page.getByRole('button', { name: 'Euclid', exact: true }).click();
-  const dialog = page.getByRole('dialog', { name: 'Euclid' });
-  await dialog.getByRole('button', { name: 'Apply' }).click(); // default 4 hits
-  await expect(dialog).toBeHidden();
-  // KEYS is in C minor at octave 3 by default: four C3 notes.
-  await expect(page.getByRole('button', { name: /^Step \d+$/ }).filter({ hasText: 'C3' })).toHaveCount(4);
-});
-
-test('Solo sits next to Euclid on Play and on the Sound screen', async ({ page }) => {
-  const header = page.getByRole('button', { name: 'Euclid', exact: true }).locator('..');
+test('Solo sits next to Rhythm on Play and on the Sound screen', async ({ page }) => {
+  const header = page.getByRole('button', { name: 'Rhythm', exact: true }).locator('..');
   await expect(header.getByRole('button', { name: 'Solo the selected track' })).toBeVisible();
   await expect(page.locator('.strip').getByRole('button', { name: 'Solo the selected track' })).toHaveCount(0);
   await header.getByRole('button', { name: 'Solo the selected track' }).click();
@@ -178,4 +153,84 @@ test('BPM slider sets the tempo and one drag is one undo step', async ({ page },
     await page.keyboard.press('Control+z');
     await expect(page.getByRole('button', { name: '92 BPM' })).toBeVisible();
   }
+});
+
+const rhythmBtn = (page: Page) => page.getByRole('button', { name: 'Rhythm', exact: true });
+const panel = (page: Page) => page.getByRole('group', { name: 'Rhythm' });
+const setSlider = (page: Page, name: string, v: number) => panel(page).getByRole('slider', { name }).fill(String(v));
+const stepLabels = (page: Page) =>
+  page.evaluate(() => Array.from(document.querySelectorAll('button[aria-label^="Step "]')).map((el) => el.textContent ?? ''));
+
+test('Rhythm opens without changing anything and replaces the macros', async ({ page }) => {
+  const before = await stepLabels(page);
+  await expect(page.getByRole('slider', { name: 'Tone' })).toBeVisible();
+  await rhythmBtn(page).click();
+  await expect(rhythmBtn(page)).toHaveAttribute('aria-pressed', 'true');
+  await expect(panel(page)).toBeVisible();
+  await expect(page.getByRole('slider', { name: 'Tone' })).toHaveCount(0);
+  expect(await stepLabels(page)).toEqual(before);
+  await expect(panel(page).getByRole('slider', { name: 'Hits' })).toHaveValue('3');
+  await rhythmBtn(page).click();
+  await expect(panel(page)).toHaveCount(0);
+  await expect(page.getByRole('slider', { name: 'Tone' })).toBeVisible();
+});
+
+test('Rhythm: 5 hits on HATS start at step 1', async ({ page }) => {
+  await page.getByRole('button', { name: /^HATS/ }).click();
+  await expect(page.getByText('HATS · 16 steps')).toBeVisible();
+  await rhythmBtn(page).click();
+  await setSlider(page, 'Hits', 5);
+  await expect.poll(() => hitCount(page)).toBe(5);
+  expect((await hitSteps(page))[0]).toBe(1);
+});
+
+test('Rhythm on BASS keeps the bass notes', async ({ page }) => {
+  await page.locator('.strip').getByRole('button', { name: /^BASS/ }).click();
+  await expect(page.getByText('BASS · 16 steps')).toBeVisible();
+  await rhythmBtn(page).click();
+  await setSlider(page, 'Hits', 8);
+  await expect.poll(async () => (await stepLabels(page)).filter((l) => /[A-G]/.test(l)).length).toBe(8);
+  const text = (await stepLabels(page)).join(' ');
+  for (const n of ['C2', 'Eb2', 'Ab1', 'G1']) expect(text).toContain(n);
+});
+
+test('Rhythm: Shift right moves the first hit from step 1 to step 2', async ({ page }) => {
+  await page.getByRole('button', { name: /^HATS/ }).click();
+  await rhythmBtn(page).click();
+  await setSlider(page, 'Hits', 4);
+  await expect.poll(() => hitSteps(page)).toEqual([1, 5, 9, 13]);
+  await panel(page).getByRole('button', { name: 'Shift right' }).click();
+  await expect.poll(() => hitSteps(page)).toEqual([2, 6, 10, 14]);
+});
+
+test('Rhythm: Cancel restores the original pattern', async ({ page }) => {
+  await page.getByRole('button', { name: /^HATS/ }).click();
+  const before = await stepLabels(page);
+  await rhythmBtn(page).click();
+  await setSlider(page, 'Hits', 5);
+  await setSlider(page, 'Rotate', 3);
+  await expect.poll(() => hitCount(page)).toBe(5);
+  await panel(page).getByRole('button', { name: 'Cancel' }).click();
+  await expect(panel(page)).toHaveCount(0);
+  expect(await stepLabels(page)).toEqual(before);
+});
+
+test('Rhythm: Done keeps it, one undo restores (desktop)', async ({ page, isMobile }) => {
+  test.skip(isMobile, 'Ctrl+Z is desktop only');
+  await page.getByRole('button', { name: /^HATS/ }).click();
+  const before = await stepLabels(page);
+  await rhythmBtn(page).click();
+  await setSlider(page, 'Hits', 5);
+  await setSlider(page, 'Hits', 7);
+  await setSlider(page, 'Rotate', 2);
+  await panel(page).getByRole('button', { name: 'Done' }).click();
+  await expect.poll(() => hitCount(page)).toBe(7);
+  await page.keyboard.press('Control+z');
+  expect(await stepLabels(page)).toEqual(before);
+});
+
+test('Rhythm: Clear empties the track', async ({ page }) => {
+  await rhythmBtn(page).click();
+  await panel(page).getByRole('button', { name: 'Clear' }).click();
+  await expect.poll(() => hitCount(page)).toBe(0);
 });
