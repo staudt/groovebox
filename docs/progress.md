@@ -1,5 +1,26 @@
 # Progress
 
+## Phase 3: Sampler and FX (2026-11-16) — awaiting phone check
+
+**Built**
+- Punch-in FX engine (`src/engine/fx/`): all 12 effects (stutter 1/4–1/32, tape stop, low and high sweep, lo-fi, gate, reverse 1 beat, reverb and delay throws), on the master or the selected track, with XY parameters, latch and click-free 5 ms ramps. Stutter, gate and reverse start on the next 1/16.
+- Send effects pulled forward from Phase 4: an FDN reverb (send A, the **Space** knob, now active) and a tempo-synced ping-pong delay (send B, used by the delay throw). The mix bus is stereo. Both sleep when silent.
+- **Recorded moves**: with Moves on, FX presses and XY slides are recorded into the current pattern (A–D) and replayed sample-accurately every loop; Clear moves in the FX sheet; one undo step per recording session.
+- FX sheet per `FX.dc.html` (opens from the center button on every screen), Perform screen per `Perform.dc.html` (key and Chords toggles, Tone/Space XY pad with tilt, four quick FX, chord/note pads, finger-drum pads for drum and one-shot sampler tracks). Desktop keys 1–8 hold FX.
+- Sampler engine: pitched (cubic interpolation), reversed, trimmed playback, one-shot and chromatic modes, 8 voices per track, click-free ends; resample (master or a track, from the next bar).
+- Sampler UI on the Sound screen: sample browser (16 CC0 kit sounds from beatboy, your samples with rename/delete, import file, mic recording with auto-trim, resample), waveform with trim handles, pitch, level, attack, release, reverse, mode.
+- Samples are stored in OPFS (metadata in IndexedDB). Schema v2: PERC becomes a sampler with the kit tambourine, VOX an empty sampler (existing patterns kept).
+
+**Verified automatically**
+- 219 unit tests, including: gate edges and stutter loops sample-accurate to the 1/16 grid (the Phase 3 acceptance test), reverse plays the previous beat backwards, all 12 effects clean on press/release and under 0 dBFS, track-targeted FX leave other tracks bit-identical, reverb/delay sends and throws, recorded moves replay every bar and release on stop, sampler pitch across sample rates, chromatic notes and holds, reverse, trim, no clicks on abrupt sample ends or sample replacement, resample captures exactly the output from the next bar.
+- 130 Playwright tests at 390x844 and 1280x800, including multi-touch (hold an FX and slide the XY pad with a second finger), mic recording with Chromium's fake microphone, file import surviving reload, and real-touch scrolling from the waveform.
+
+**Needs a human**
+- By ear: every effect while the loop plays (especially stutter, tape stop, sweeps, reverse), the reverb and delay character, Space on PAD and KEYS, kit sounds, pitched samples.
+- By touch: holding FX with one thumb and sliding XY with the other, Latch, the Perform pads with several fingers, tilt, trim handles.
+- Mic recording on the phone (quality, permission prompt, the −45 dB auto-trim) and resample timing.
+- `bench.html` on the phone: the new "spec budget" line (worst case + sends + 2 FX).
+
 ## Phase 2: FM synth (2026-11-16) — accepted on the phone
 
 **Built**
