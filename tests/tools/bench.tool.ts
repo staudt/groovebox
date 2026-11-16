@@ -14,6 +14,9 @@ it('bench', () => {
   for (const t of [0, 1, 2, 6]) {
     e.command({ type: 'pattern', track: t, pattern: parsePattern(Array(16).fill('x').join(' ')) });
   }
+  // FM worst case per the spec budget: 8 FM voices sounding (two 4-note chords held on PAD and KEYS).
+  e.command({ type: 'pattern', track: 5, pattern: parsePattern('Cm7* ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~') });
+  e.command({ type: 'pattern', track: 4, pattern: parsePattern('Abmaj7* ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~') });
   e.command({ type: 'tempo', bpm: 200, swing: 50 });
   e.command({ type: 'transport', playing: true });
   const l = new Float32Array(128);
