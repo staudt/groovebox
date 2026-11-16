@@ -1,6 +1,6 @@
 # Progress
 
-## Phase 2: FM synth (2026-11-16) — awaiting phone check
+## Phase 2: FM synth (2026-11-16) — accepted on the phone
 
 **Built**
 - FM engine (`src/engine/fm/`): 6 operators, the 32 DX7-style algorithms (written from the published diagrams), feedback, ratio/detune/level/ADSR/velocity sensitivity per operator, 8 notes of polyphony per track with click-free voice stealing, sine table lookup, silent operators skipped.
