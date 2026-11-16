@@ -17,8 +17,18 @@
 - 64 Playwright tests at 390x844 and 1280x800, including Sound screen editing, saving a patch and finding it after reload, melodic editing, the picker and solo.
 - CPU: headless desktop Chromium, worst case (4 drum tracks on every 16th + 8 FM voices with all 6 operators) = 6.3 % of one core. `bench.html` on the deployed site measures the real phone.
 
+**Measured on devices (bench.html, % of one core)**
+
+| Scenario | User's phone | User's desktop Chrome | Headless desktop |
+|---|---|---|---|
+| Default song | 3.7 | 12.5 | 5.2 |
+| Drums, 4 tracks on every 16th at 200 BPM | 1.3 | 3.7 | 1.8 |
+| 8 FM voices, all 6 operators | 3.3 | 12.1 | 4.4 |
+| Worst case (both) | 4.3 | 14.0 | 6.3 |
+
+Decision: no WASM needed; the TypeScript engine uses about 1/7 of the 30 % budget on the phone. The desktop browser was slower than the phone, most likely CPU power saving on the laptop; worth rechecking only if desktop audio ever glitches.
+
 **Needs a human**
-- Run https://staudt.github.io/groovebox/bench.html on the phone (decides whether FM needs WASM later).
 - By ear: all 9 FM presets (they were written without listening), envelope and macro response, chords, holds, stealing when playing many keys.
 - By touch: drag-right holds across rows, long-press picker, envelope handles, keyboard multi-touch, Solo.
 
