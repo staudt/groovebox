@@ -1,7 +1,7 @@
 // Project store: single source of truth on the main thread.
 // Every mutation goes through `apply(cmd)`, which records its inverse for undo/redo.
 import { batch, computed, signal } from '@preact/signals';
-import type { DrumParams, PatternId, Project, Step, Track } from './types';
+import type { DrumParams, FmOpKey, FmPatch, PatternId, PitchClass, Project, ScaleName, Step, Track } from './types';
 import { BPM_MAX, BPM_MIN, SWING_MAX, SWING_MIN } from './types';
 import { defaultProject } from './defaults';
 
@@ -12,7 +12,14 @@ export type Command =
   | { type: 'setSwing'; swing: number }
   | { type: 'setDrumParam'; track: number; key: Exclude<keyof DrumParams, 'model'>; value: number }
   | { type: 'setMacro'; track: number; macro: number; value: number }
-  | { type: 'setMute'; track: number; mute: boolean };
+  | { type: 'setMute'; track: number; mute: boolean }
+  /** Replace a whole FM patch (preset load, random, undo of a patch swap). */
+  | { type: 'setFmPatch'; track: number; patch: FmPatch }
+  /** One operator parameter; op is 0..5 (OP1..OP6). */
+  | { type: 'setFmOp'; track: number; op: number; key: FmOpKey; value: number }
+  | { type: 'setFmGlobal'; track: number; key: 'algorithm' | 'feedback'; value: number }
+  | { type: 'setKey'; key: PitchClass }
+  | { type: 'setScale'; scale: ScaleName };
 
 export const project = signal<Project>(defaultProject());
 export const selectedTrack = signal(0);
@@ -20,6 +27,8 @@ export const currentPattern = signal<PatternId>('A');
 export const playing = signal(false);
 
 export const track = computed<Track>(() => project.value.tracks[selectedTrack.value]!);
+/** Step index (in the current pattern of the selected track) that keyboard input writes to; -1 = none. */
+export const selectedStep = signal(-1);
 
 const undoStack: Command[][] = [];
 const redoStack: Command[][] = [];
@@ -28,6 +37,38 @@ export const canRedo = signal(false);
 const UNDO_LIMIT = 200;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+/** Legal ranges for FM operator params (see FmOperator). */
+export const FM_OP_RANGE: Record<FmOpKey, [number, number]> = {
+  ratio: [0.5, 31.99],
+  detune: [-7, 7],
+  level: [0, 99],
+  a: [0, 1],
+  d: [0, 1],
+  s: [0, 1],
+  r: [0, 1],
+  velSens: [0, 7],
+};
+
+/** Clamps every number in a patch to its legal range (used for presets, random, imports and LLM output). */
+export function clampPatch(p: FmPatch): FmPatch {
+  const ops = p.ops.map((o) => {
+    const c = { ...o };
+    for (const k of Object.keys(FM_OP_RANGE) as FmOpKey[]) {
+      const [lo, hi] = FM_OP_RANGE[k];
+      const v = Number.isFinite(c[k]) ? c[k] : lo;
+      c[k] = k === 'detune' || k === 'level' || k === 'velSens' ? Math.round(clamp(v, lo, hi)) : clamp(v, lo, hi);
+    }
+    return c;
+  }) as FmPatch['ops'];
+  return {
+    kind: 'fm',
+    name: String(p.name ?? 'Patch').slice(0, 32),
+    algorithm: Math.round(clamp(p.algorithm, 1, 32)),
+    feedback: Math.round(clamp(p.feedback, 0, 7)),
+    ops,
+  };
+}
 
 function mapTrack(p: Project, i: number, f: (t: Track) => Track): Project {
   const tracks = p.tracks.slice();
@@ -87,6 +128,28 @@ export function reduce(p: Project, cmd: Command): [Project, Command] {
       }
       return [next, { ...cmd, value: m.value }];
     }
+    case 'setFmPatch': {
+      const prev = p.tracks[cmd.track]!.params as FmPatch;
+      return [mapTrack(p, cmd.track, (t) => ({ ...t, params: clampPatch(cmd.patch) })), { ...cmd, patch: prev }];
+    }
+    case 'setFmOp': {
+      const patch = p.tracks[cmd.track]!.params as FmPatch;
+      const prev = patch.ops[cmd.op]![cmd.key];
+      const [lo, hi] = FM_OP_RANGE[cmd.key];
+      const ops = patch.ops.slice() as FmPatch['ops'];
+      ops[cmd.op] = { ...ops[cmd.op]!, [cmd.key]: clamp(cmd.value, lo, hi) };
+      return [mapTrack(p, cmd.track, (t) => ({ ...t, params: { ...patch, ops } })), { ...cmd, value: prev }];
+    }
+    case 'setFmGlobal': {
+      const patch = p.tracks[cmd.track]!.params as FmPatch;
+      const prev = patch[cmd.key];
+      const value = cmd.key === 'algorithm' ? Math.round(clamp(cmd.value, 1, 32)) : Math.round(clamp(cmd.value, 0, 7));
+      return [mapTrack(p, cmd.track, (t) => ({ ...t, params: { ...patch, [cmd.key]: value } })), { ...cmd, value: prev }];
+    }
+    case 'setKey':
+      return [{ ...p, key: (((Math.round(cmd.key) % 12) + 12) % 12) as PitchClass }, { type: 'setKey', key: p.key }];
+    case 'setScale':
+      return [{ ...p, scale: cmd.scale }, { type: 'setScale', scale: p.scale }];
     case 'setMute': {
       const prev = p.tracks[cmd.track]!.mute;
       return [mapTrack(p, cmd.track, (t) => ({ ...t, mute: cmd.mute })), { ...cmd, mute: prev }];

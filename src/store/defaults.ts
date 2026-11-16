@@ -1,4 +1,5 @@
 import { parsePattern } from './notation';
+import { presetByName } from './fmPresets';
 import type { DrumModel, DrumParams, MacroMap, Pattern, PatternId, Project, Track, TrackKind } from './types';
 
 export const SCHEMA_VERSION = 1;
@@ -33,8 +34,8 @@ function macros(p: DrumParams | null): Track['macros'] {
   ];
 }
 
-function makeTrack(i: number, name: string, kind: TrackKind, model: DrumModel | null, pat: string): Track {
-  const params = model ? drumParams(model) : kind === 'fm' ? { kind: 'fm' as const, name: 'Init' } : { kind: 'sampler' as const, name: 'Empty' };
+function makeTrack(i: number, name: string, kind: TrackKind, model: DrumModel | null, pat: string, preset = 'Init'): Track {
+  const params = model ? drumParams(model) : kind === 'fm' ? presetByName(preset) : { kind: 'sampler' as const, name: 'Empty' };
   return {
     id: `t${i}`,
     name,
@@ -58,9 +59,9 @@ export function defaultProject(): Project {
       makeTrack(0, 'KICK', 'drum', 'kick', 'x . . . . . x . x . . . . . . .'),
       makeTrack(1, 'SNARE', 'drum', 'snare', '. . . . x . . . . . . . x . . x40'),
       makeTrack(2, 'HATS', 'drum', 'hat', 'x x50 x x50 x x50 x x50 x x50 x x50 x x50 x x50'),
-      makeTrack(3, 'BASS', 'fm', null, ''),
-      makeTrack(4, 'KEYS', 'fm', null, ''),
-      makeTrack(5, 'PAD', 'fm', null, ''),
+      makeTrack(3, 'BASS', 'fm', null, 'C2 . C2 . . Eb2 . . Ab1 . Ab1 . . G1 ~ .', 'Round Bass'),
+      makeTrack(4, 'KEYS', 'fm', null, '', 'Electric Piano'),
+      makeTrack(5, 'PAD', 'fm', null, 'Cm* ~ ~ ~ ~ ~ ~ ~ Ab* ~ ~ ~ ~ ~ ~ ~', 'Soft Pad'),
       // PERC is a sampler track in the mockup; until the sampler lands it plays the synth perc voice.
       makeTrack(6, 'PERC', 'drum', 'perc', '. . . . . . . x60 . . x50 . . . . .'),
       makeTrack(7, 'VOX', 'sampler', null, ''),
@@ -72,5 +73,6 @@ export function defaultProject(): Project {
   };
 }
 
-/** Phase 1: only drum tracks are playable. */
-export const isPlayable = (t: Track) => t.kind === 'drum';
+/** Tracks whose engine exists (sampler tracks unlock in Phase 3). */
+export const isPlayable = (t: Track) => t.kind === 'drum' || t.kind === 'fm';
+export const isMelodic = (t: Track) => t.kind === 'fm';

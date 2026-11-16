@@ -1,9 +1,10 @@
 // Text notation, one token per step:
 //   .  rest      x  hit (vel 100)   x64  hit with velocity 64
 //   G4 note (sharps or flats, Ab4 / G#4), optional velocity suffix ":80"
-//   ~  hold      Fm*  chord (symbol only; notes resolved by the harmony engine / chord tables)
+//   ~  hold      Fm*  chord (close voicing with the root in octave 3, see chordNotes)
 // Example: "G4 ~ Ab4 G4 F4 ~ Eb4 ~ Fm* ~ ~ ~ C5 ~ Bb4 ~"
 import type { Midi, Pattern, PatternLength, Step } from './types';
+import { chordNotes } from '../harmony/theory';
 
 const NAMES_SHARP = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 const NAMES_FLAT = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'];
@@ -30,7 +31,12 @@ export function parseStep(tok: string): Step {
   if (tok === '~') return { t: 'hold' };
   const hit = /^x(\d{1,3})?$/.exec(tok);
   if (hit) return { t: 'hit', vel: hit[1] ? Number(hit[1]) : DEFAULT_VEL };
-  if (tok.endsWith('*')) return { t: 'chord', notes: [], symbol: tok.slice(0, -1), vel: DEFAULT_VEL };
+  if (tok.endsWith('*')) {
+    const symbol = tok.slice(0, -1);
+    const notes = chordNotes(symbol);
+    if (!notes.length) throw new Error(`Bad chord: "${tok}"`);
+    return { t: 'chord', notes, symbol, vel: DEFAULT_VEL };
+  }
   const [name, vel] = tok.split(':');
   const midi = noteToMidi(name!);
   if (midi !== null) return { t: 'note', note: midi, vel: vel ? Number(vel) : DEFAULT_VEL };

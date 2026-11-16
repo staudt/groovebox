@@ -30,11 +30,41 @@ export type DrumParams = {
   drive: number;
 };
 
-/** Placeholders until Phase 2/3 define them. */
-export type FmPatch = { kind: 'fm'; name: string };
+/**
+ * One FM operator. Ranges (the engine and the store clamp to these):
+ *   ratio 0.5..31.99 (frequency multiple of the note), detune -7..7 (about 1.5 cents per step),
+ *   level 0..99 (DX7-style output level, ~0.75 dB per step), a/d/r 0..1 (exp-mapped times),
+ *   s 0..1 (sustain level), velSens 0..7.
+ */
+export type FmOperator = {
+  ratio: number;
+  detune: number;
+  level: number;
+  a: number;
+  d: number;
+  s: number;
+  r: number;
+  velSens: number;
+};
+export type FmOpKey = keyof FmOperator;
+
+/** 6-operator FM patch. ops[0] is OP1 ... ops[5] is OP6. Plain JSON (also the LLM output format). */
+export type FmPatch = {
+  kind: 'fm';
+  name: string;
+  algorithm: number; // 1..32
+  feedback: number; // 0..7
+  ops: [FmOperator, FmOperator, FmOperator, FmOperator, FmOperator, FmOperator];
+};
+
+/** Placeholder until Phase 3 defines it. */
 export type SamplerParams = { kind: 'sampler'; name: string };
 
-/** A macro knob maps 0..1 onto one or more params. Phase 1: direct param ids. */
+/**
+ * A macro knob, 0..1. Drum tracks: the value is written into the targeted drum params.
+ * FM tracks: the engine applies it as an offset around 0.5 (Tone = modulator levels,
+ * Decay = envelope times, Drive = track drive); the patch itself is untouched.
+ */
 export type MacroMap = { label: string; value: number; targets: string[] };
 
 export type Track = {
