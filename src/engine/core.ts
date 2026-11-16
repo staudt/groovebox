@@ -7,6 +7,10 @@ import { DrumSettings, DrumVoice, modelIndex } from './voices/drum';
 import { FmParams, FmVoice } from './fm/voice';
 import { Limiter } from './limiter';
 import { Noise, softClip } from './dsp';
+import { Reverb } from './fx/reverb';
+import { PingPongDelay } from './fx/delay';
+import { DEFAULT_DELAY_FB, DEFAULT_DELAY_STEPS, DEFAULT_REVERB_S, PunchChain } from './fx/punch';
+import { FX_DEFAULT_XY, FX_DEFS, FX_IDS, fxIndex } from './fx/ids';
 import { MAX_STEPS, MAX_TRACKS } from '../store/types';
 
 const MAX_BLOCK = 4096;
@@ -54,6 +58,11 @@ class TrackState {
   drive = 0;
   /** Smoothed gain (level and mute), per sample. */
   gain = 0;
+  /** Reverb (A) and delay (B) send levels: targets and smoothed values. */
+  sendA = 0;
+  sendB = 0;
+  curA = 0;
+  curB = 0;
   peak = 0;
 }
 
@@ -90,6 +99,16 @@ export class Engine {
   private noteIds = 0;
 
   private masterGain = 0.9;
+  // Send effects and punch-in FX.
+  private readonly reverb: Reverb;
+  private readonly delay: PingPongDelay;
+  private readonly punch: PunchChain;
+  private readonly revIn = new Float32Array(MAX_BLOCK);
+  private readonly delIn = new Float32Array(MAX_BLOCK);
+  private readonly injRev = new Float32Array(MAX_BLOCK);
+  private readonly injDel = new Float32Array(MAX_BLOCK);
+  private readonly fxL = new Float32Array(MAX_BLOCK);
+  private readonly fxR = new Float32Array(MAX_BLOCK);
   private soloTrack = -1;
   private masterPeak = 0;
   private meterFrames = 0;
@@ -99,6 +118,9 @@ export class Engine {
   constructor(sampleRate: number) {
     this.sampleRate = sampleRate;
     this.limiter = new Limiter(sampleRate);
+    this.reverb = new Reverb(sampleRate);
+    this.delay = new PingPongDelay(sampleRate);
+    this.punch = new PunchChain(sampleRate);
     this.smoothK = 1 - Math.exp(-1 / (0.01 * sampleRate)); // ~10 ms parameter smoothing
     this.meterEvery = Math.round(sampleRate / METER_HZ);
     for (let t = 0; t < MAX_TRACKS; t++) {
@@ -253,6 +275,35 @@ export class Engine {
         }
         break;
       }
+      case 'sends': {
+        const ts = this.tracks[cmd.track];
+        if (!ts) return;
+        ts.sendA = Math.min(1, Math.max(0, cmd.a));
+        ts.sendB = Math.min(1, Math.max(0, cmd.b));
+        break;
+      }
+      case 'fx': {
+        const k = fxIndex(cmd.fx);
+        if (k < 0) return;
+        if (cmd.on) {
+          const t = Math.min(MAX_TRACKS - 1, Math.max(-1, Math.round(cmd.target)));
+          if (t !== this.punch.target) {
+            this.punch.releaseAll();
+            this.punch.target = t;
+          }
+          const [dx, dy] = FX_DEFAULT_XY[FX_IDS[k]!];
+          this.punch.setXY(k, cmd.x ?? dx, cmd.y ?? dy, true);
+        }
+        // Stutter, gate and reverse start on the next 1/16 while playing; everything else at once.
+        const snaps = FX_DEFS[k]!.snaps && this.playing;
+        this.punch.press(k, cmd.on, snaps ? this.nextSixteenth() : this.frame);
+        break;
+      }
+      case 'fxXY': {
+        const k = fxIndex(cmd.fx);
+        if (k >= 0) this.punch.setXY(k, cmd.x, cmd.y);
+        break;
+      }
       case 'solo':
         this.soloTrack = cmd.track;
         for (let t = 0; t < MAX_TRACKS; t++) this.snapGainIfSilent(this.tracks[t]!);
@@ -309,6 +360,13 @@ export class Engine {
   /** Frame at which song position `step` (fractional) occurs at the current tempo. */
   private frameAt(step: number): number {
     return this.anchorFrame + (step - this.anchorStep) * this.samplesPerStep;
+  }
+
+  /** First frame at or after the current one that falls on a straight 1/16 boundary. */
+  private nextSixteenth(): number {
+    const pos = this.posAt(this.frame);
+    const next = Math.ceil(pos - 1e-9);
+    return Math.max(this.frame, Math.round(this.frameAt(next)));
   }
 
   /** Swing delays every odd 16th by (2 * swing - 1) steps: 50 % = straight, 75 % = dotted. */
@@ -467,8 +525,21 @@ export class Engine {
     }
     this.renderVoices(cursor, n);
 
-    // Mix: per-track drive, smoothed level/mute gain, mono to center.
+    // Mix: per-track drive and smoothed level/mute gain, mono to center; sends to reverb/delay.
+    // The punch-in FX target track is mixed into fxL/fxR first so the chain can process it alone.
     left.fill(0, 0, n);
+    right.fill(0, 0, n);
+    const revIn = this.revIn;
+    const delIn = this.delIn;
+    revIn.fill(0, 0, n);
+    delIn.fill(0, 0, n);
+    const punch = this.punch;
+    // The target track is always routed separately so the chain can keep its history for Reverse.
+    const fxTrack = punch.target >= 0 ? punch.target : -1;
+    if (fxTrack >= 0) {
+      this.fxL.fill(0, 0, n);
+      this.fxR.fill(0, 0, n);
+    }
     const k = this.smoothK;
     for (let t = 0; t < MAX_TRACKS; t++) {
       const ts = this.tracks[t]!;
@@ -479,29 +550,70 @@ export class Engine {
       }
       const buf = ts.buf;
       const drive = ts.drive;
+      const outL = t === fxTrack ? this.fxL : left;
+      const outR = t === fxTrack ? this.fxR : right;
       let g = ts.gain;
       let pk = ts.peak;
+      let a = ts.curA;
+      let b = ts.curB;
+      const ta = ts.sendA;
+      const tb = ts.sendB;
       for (let i = 0; i < n; i++) {
         g += (target - g) * k;
+        a += (ta - a) * k;
+        b += (tb - b) * k;
         const y = softClip(buf[i]!, drive) * g;
-        const a = Math.abs(y);
-        if (a > pk) pk = a;
-        left[i]! += y;
+        const m = Math.abs(y);
+        if (m > pk) pk = m;
+        outL[i]! += y;
+        outR[i]! += y;
+        revIn[i]! += y * a;
+        delIn[i]! += y * b;
       }
       ts.gain = g;
       ts.peak = pk;
+      ts.curA = a;
+      ts.curB = b;
+    }
+    const sps = this.samplesPerStep;
+    if (fxTrack >= 0) {
+      if (punch.busy) punch.process(this.fxL, this.fxR, n, blockStart, sps, this.injRev, this.injDel, this.reverb, this.delay);
+      else punch.record(this.fxL, this.fxR, n);
+      for (let i = 0; i < n; i++) {
+        left[i]! += this.fxL[i]!;
+        right[i]! += this.fxR[i]!;
+      }
+    }
+    // Send returns (throws injected by the chain join the buses here).
+    for (let i = 0; i < n; i++) {
+      revIn[i]! += this.injRev[i]!;
+      delIn[i]! += this.injDel[i]!;
+    }
+    this.injRev.fill(0, 0, n);
+    this.injDel.fill(0, 0, n);
+    this.reverb.process(revIn, left, right, n);
+    this.delay.process(delIn, left, right, n);
+    // Master punch-in FX (also processes the send returns).
+    if (punch.target < 0) {
+      if (punch.busy) punch.process(left, right, n, blockStart, sps, this.injRev, this.injDel, this.reverb, this.delay);
+      else punch.record(left, right, n);
+    }
+    if (!punch.busy) {
+      // No effect running: send effects at their defaults, delay time following the tempo.
+      this.reverb.setDecay(DEFAULT_REVERB_S);
+      this.delay.setTime((DEFAULT_DELAY_STEPS * sps) / this.sampleRate);
+      this.delay.setFeedback(DEFAULT_DELAY_FB);
     }
     const mg = this.masterGain;
     for (let i = 0; i < n; i++) {
-      const v = left[i]! * mg;
-      left[i] = v;
-      right[i] = v;
+      left[i] = left[i]! * mg;
+      right[i] = right[i]! * mg;
     }
     this.limiter.process(left, right, n);
 
     let mp = this.masterPeak;
     for (let i = 0; i < n; i++) {
-      const a = Math.abs(left[i]!);
+      const a = Math.max(Math.abs(left[i]!), Math.abs(right[i]!));
       if (a > mp) mp = a;
     }
     this.masterPeak = mp;

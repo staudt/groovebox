@@ -1,6 +1,7 @@
 // Messages between the main thread and the engine worklet. Structured-cloneable plain objects.
 // Commands flow main -> engine; events flow engine -> main at a throttled rate.
 import type { DrumParams, FmPatch, Pattern } from '../store/types';
+import type { FxId } from './fx/ids';
 
 export type EngineCommand =
   | { type: 'transport'; playing: boolean }
@@ -17,6 +18,14 @@ export type EngineCommand =
   /** Release every live (keyboard) note on a track, e.g. when Hold is switched off. */
   | { type: 'allNotesOff'; track: number }
   | { type: 'mute'; track: number; mute: boolean }
+  /** Reverb (a) and delay (b) send levels 0..1. */
+  | { type: 'sends'; track: number; a: number; b: number }
+  /**
+   * Punch-in effect press/release. target: -1 = master, else a track. Stutter, gate and reverse
+   * start on the next 1/16 while playing. x/y (0..1) set the XY parameters at press time.
+   */
+  | { type: 'fx'; fx: FxId; on: boolean; target: number; x?: number; y?: number }
+  | { type: 'fxXY'; fx: FxId; x: number; y: number }
   /** Only this track is heard (-1 = no solo). Gains fade, so toggling never clicks. */
   | { type: 'solo'; track: number }
   /** Audition: play one hit now (finger drumming / preview). vel 0..127. */
