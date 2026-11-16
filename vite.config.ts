@@ -2,11 +2,12 @@
 import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 import basicSsl from '@vitejs/plugin-basic-ssl';
+import { serviceWorker } from './scripts/sw-plugin';
 
 export default defineConfig(({ mode }) => ({
   base: './',
   // `pnpm dev:lan` serves https on the LAN (self-signed) so the phone gets a secure context for AudioWorklet.
-  plugins: [preact(), ...(mode === 'lan' ? [basicSsl()] : [])],
+  plugins: [preact(), serviceWorker(), ...(mode === 'lan' ? [basicSsl()] : [])],
   build: {
     rollupOptions: {
       // The engine render harness page is only built for tests (`--mode test`).
