@@ -1,6 +1,6 @@
 // Messages between the main thread and the engine worklet. Structured-cloneable plain objects.
 // Commands flow main -> engine; events flow engine -> main at a throttled rate.
-import type { DrumParams, FmPatch, Pattern } from '../store/types';
+import type { DrumParams, FmPatch, Pattern, SamplerParams } from '../store/types';
 import type { FxId } from './fx/ids';
 
 export type EngineCommand =
@@ -8,7 +8,15 @@ export type EngineCommand =
   | { type: 'tempo'; bpm: number; swing: number }
   | { type: 'pattern'; track: number; pattern: Pattern }
   | { type: 'drumParams'; track: number; params: DrumParams }
-  | { type: 'trackKind'; track: number; kind: 'drum' | 'fm' | 'off' }
+  | { type: 'trackKind'; track: number; kind: 'drum' | 'fm' | 'sampler' | 'off' }
+  | { type: 'samplerParams'; track: number; params: SamplerParams }
+  /** Load (or replace) a sample under `id`. Mono samples send r === undefined. */
+  | { type: 'sample'; id: string; l: Float32Array; r?: Float32Array; rate: number }
+  /**
+   * Record `source` (-1 = master, else a track) into the provided buffers (their length = frames),
+   * starting at the next bar while playing, else at once. Answered by a 'resampled' event.
+   */
+  | { type: 'resample'; id: string; source: number; l: Float32Array; r: Float32Array }
   | { type: 'fmPatch'; track: number; patch: FmPatch }
   /** Macro values 0..1 [Tone, Decay, Drive, Space] for FM tracks (applied as offsets around 0.5). */
   | { type: 'macros'; track: number; values: [number, number, number, number] }
@@ -37,5 +45,7 @@ export type EngineEvent =
    * Sent once per step while playing, plus once with step -1 on stop.
    */
   | { type: 'step'; step: number; time: number }
+  /** A resample finished; the buffers are transferred back. */
+  | { type: 'resampled'; id: string; l: Float32Array; r: Float32Array }
   /** Peak levels per track and master (0..1+), about 30 times per second while playing. */
   | { type: 'meters'; tracks: number[]; master: number };

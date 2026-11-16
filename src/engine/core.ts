@@ -5,6 +5,7 @@
 import type { EngineCommand, EngineEvent } from './protocol';
 import { DrumSettings, DrumVoice, modelIndex } from './voices/drum';
 import { FmParams, FmVoice } from './fm/voice';
+import { SamplerSettings, SamplerVoice, samplerAttackS, samplerReleaseS, type SampleData } from './sampler/voice';
 import { Limiter } from './limiter';
 import { Noise, softClip } from './dsp';
 import { Reverb } from './fx/reverb';
@@ -23,6 +24,9 @@ const MAX_CHORD = 6;
 const KIND_OFF = 0;
 const KIND_DRUM = 1;
 const KIND_FM = 2;
+const KIND_SAMPLER = 3;
+const SAMPLER_POLY = 8;
+const SAMPLER_VOICES = SAMPLER_POLY + 2;
 
 const EV_HIT = 0;
 const EV_ON = 1;
@@ -51,6 +55,9 @@ class TrackState {
   readonly fm = new FmParams();
   readonly fmVoices: FmVoice[] = [];
   fmAge = 0;
+  readonly sampler = new SamplerSettings();
+  readonly samplerVoices: SamplerVoice[] = [];
+  sampleId: string | null = null;
   readonly settings = new DrumSettings();
   readonly voices: DrumVoice[] = [];
   readonly buf = new Float32Array(MAX_BLOCK);
@@ -97,6 +104,15 @@ export class Engine {
   private qSeq = new Uint8Array(QUEUE); // 1 = from the sequencer (dropped on stop), 0 = live / audition
   private qLen = 0;
   private noteIds = 0;
+  /** Loaded samples by id (filled by 'sample' commands, at UI rate). */
+  private readonly samples = new Map<string, SampleData>();
+  // Resample capture.
+  private capId = '';
+  private capSource = -2; // -2 = idle, -1 = master, else track
+  private capL: Float32Array | null = null;
+  private capR: Float32Array | null = null;
+  private capPos = 0;
+  private capStart = 0;
 
   private masterGain = 0.9;
   // Send effects and punch-in FX.
@@ -127,6 +143,7 @@ export class Engine {
       const ts = new TrackState();
       for (let v = 0; v < VOICES_PER_TRACK; v++) ts.voices.push(new DrumVoice(sampleRate, 0x1234567 + t * 977 + v * 131));
       for (let v = 0; v < FM_VOICES; v++) ts.fmVoices.push(new FmVoice(sampleRate));
+      for (let v = 0; v < SAMPLER_VOICES; v++) ts.samplerVoices.push(new SamplerVoice(sampleRate));
       this.tracks.push(ts);
     }
   }
@@ -167,6 +184,10 @@ export class Engine {
             for (let v = 0; v < FM_VOICES; v++) {
               const voice = ts.fmVoices[v]!;
               if (voice.active && !voice.live) voice.noteOff(ts.fm);
+            }
+            for (let v = 0; v < SAMPLER_VOICES; v++) {
+              const voice = ts.samplerVoices[v]!;
+              if (voice.active && !voice.live) voice.noteOff(ts.sampler.chromatic);
             }
           }
           this.emit({ type: 'step', step: -1, time: this.timeOf(this.frame) });
@@ -229,14 +250,55 @@ export class Engine {
       case 'trackKind': {
         const ts = this.tracks[cmd.track];
         if (ts) {
-          const kind = cmd.kind === 'drum' ? KIND_DRUM : cmd.kind === 'fm' ? KIND_FM : KIND_OFF;
+          const kind = cmd.kind === 'drum' ? KIND_DRUM : cmd.kind === 'fm' ? KIND_FM : cmd.kind === 'sampler' ? KIND_SAMPLER : KIND_OFF;
           if (kind !== ts.kind) {
             for (let v = 0; v < VOICES_PER_TRACK; v++) ts.voices[v]!.release();
             for (let v = 0; v < FM_VOICES; v++) ts.fmVoices[v]!.stealFade();
+            for (let v = 0; v < SAMPLER_VOICES; v++) ts.samplerVoices[v]!.stealFade();
           }
           ts.kind = kind;
           this.snapGainIfSilent(ts);
         }
+        break;
+      }
+      case 'samplerParams': {
+        const ts = this.tracks[cmd.track];
+        if (!ts) return;
+        const p = cmd.params;
+        const st = ts.sampler;
+        ts.sampleId = p.sampleId;
+        st.sample = p.sampleId ? (this.samples.get(p.sampleId) ?? null) : null;
+        st.start = Math.min(1, Math.max(0, p.start));
+        st.end = Math.min(1, Math.max(0, p.end));
+        st.pitch = Math.min(24, Math.max(-24, p.pitch));
+        st.reverse = p.reverse;
+        st.chromatic = p.mode === 'chromatic';
+        st.root = p.root;
+        st.attackS = samplerAttackS(p.attack);
+        st.releaseS = samplerReleaseS(p.release);
+        ts.level = p.level;
+        this.snapGainIfSilent(ts);
+        break;
+      }
+      case 'sample': {
+        const data: SampleData = { l: cmd.l, r: cmd.r ?? cmd.l, rate: cmd.rate };
+        // A replaced sample must not be read by voices still holding the old buffer: fade them.
+        for (let t = 0; t < MAX_TRACKS; t++) {
+          const ts = this.tracks[t]!;
+          if (ts.sampleId !== cmd.id) continue;
+          for (let v = 0; v < SAMPLER_VOICES; v++) ts.samplerVoices[v]!.stealFade();
+          ts.sampler.sample = data;
+        }
+        this.samples.set(cmd.id, data);
+        break;
+      }
+      case 'resample': {
+        this.capId = cmd.id;
+        this.capSource = Math.min(MAX_TRACKS - 1, Math.max(-1, cmd.source));
+        this.capL = cmd.l;
+        this.capR = cmd.r;
+        this.capPos = 0;
+        this.capStart = this.playing ? this.nextBar() : this.frame;
         break;
       }
       case 'fmPatch': {
@@ -264,6 +326,10 @@ export class Engine {
         for (let v = 0; v < FM_VOICES; v++) {
           const voice = ts.fmVoices[v]!;
           if (voice.active && voice.live) voice.noteOff(ts.fm);
+        }
+        for (let v = 0; v < SAMPLER_VOICES; v++) {
+          const voice = ts.samplerVoices[v]!;
+          if (voice.active && voice.live) voice.noteOff(ts.sampler.chromatic, true);
         }
         break;
       }
@@ -323,6 +389,7 @@ export class Engine {
   private snapGainIfSilent(ts: TrackState): void {
     for (let v = 0; v < VOICES_PER_TRACK; v++) if (ts.voices[v]!.active) return;
     for (let v = 0; v < FM_VOICES; v++) if (ts.fmVoices[v]!.active) return;
+    for (let v = 0; v < SAMPLER_VOICES; v++) if (ts.samplerVoices[v]!.active) return;
     ts.gain = this.targetGain(ts);
   }
 
@@ -362,6 +429,36 @@ export class Engine {
     return this.anchorFrame + (step - this.anchorStep) * this.samplesPerStep;
   }
 
+  /** First frame at or after the current one that starts a bar (16 steps). */
+  private nextBar(): number {
+    const pos = this.posAt(this.frame);
+    const next = Math.ceil((pos - 1e-9) / 16) * 16;
+    return Math.max(this.frame, Math.round(this.frameAt(next)));
+  }
+
+  /**
+   * Copies a block (absolute frame f0) into the resample buffers once capture has started.
+   * Track sources pass their raw buffer plus the gain and drive used in the mix.
+   */
+  private capture(l: Float32Array, r: Float32Array, n: number, f0: number, gain: number, drive: number): void {
+    const cl = this.capL;
+    const cr = this.capR;
+    if (!cl || !cr) return;
+    for (let i = 0; i < n; i++) {
+      if (f0 + i < this.capStart) continue;
+      if (this.capPos >= cl.length) break;
+      cl[this.capPos] = softClip(l[i]!, drive) * gain;
+      cr[this.capPos] = softClip(r[i]!, drive) * gain;
+      this.capPos++;
+    }
+    if (this.capPos >= cl.length) {
+      this.capSource = -2;
+      this.capL = null;
+      this.capR = null;
+      this.emit({ type: 'resampled', id: this.capId, l: cl, r: cr });
+    }
+  }
+
   /** First frame at or after the current one that falls on a straight 1/16 boundary. */
   private nextSixteenth(): number {
     const pos = this.posAt(this.frame);
@@ -395,6 +492,12 @@ export class Engine {
           this.enqueue(at, EV_HIT, t, ts.vel[i]!, 0, 0, 1);
           continue;
         }
+        if (ts.kind === KIND_SAMPLER && !ts.sampler.chromatic) {
+          // One-shot: every hit, note or chord plays the sample once (at its own pitch).
+          this.enqueue(at, EV_ON, t, ts.vel[i]!, ts.sampler.root, ++this.noteIds, 1);
+          continue;
+        }
+        if (type === ST_HIT) continue;
         // FM: the note lasts until the end of the holds that follow it (legato across holds).
         let holds = 0;
         while (holds < ts.length - 1 && ts.type[(i + 1 + holds) % ts.length] === ST_HOLD) holds++;
@@ -462,9 +565,53 @@ export class Engine {
     const type = this.qType[i]!;
     if (type === EV_HIT) {
       if (ts.kind === KIND_DRUM) this.trigger(ts, this.qVel[i]!);
+      else if (ts.kind === KIND_SAMPLER) this.samplerNoteOn(ts, ts.sampler.root, this.qVel[i]!, ++this.noteIds); // audition
     } else if (ts.kind === KIND_FM) {
       if (type === EV_ON) this.fmNoteOn(ts, this.qNote[i]!, this.qVel[i]!, this.qId[i]!);
       else this.fmNoteOff(ts, this.qNote[i]!, this.qId[i]!);
+    } else if (ts.kind === KIND_SAMPLER) {
+      if (type === EV_ON) this.samplerNoteOn(ts, this.qNote[i]!, this.qVel[i]!, this.qId[i]!);
+      else this.samplerNoteOff(ts, this.qNote[i]!, this.qId[i]!);
+    }
+  }
+
+  private samplerNoteOn(ts: TrackState, note: number, vel: number, id: number): void {
+    if (!ts.sampler.sample) return;
+    const voices = ts.samplerVoices;
+    let sounding = 0;
+    let oldest = -1;
+    for (let v = 0; v < SAMPLER_VOICES; v++) {
+      const voice = voices[v]!;
+      if (!voice.active || voice.stealing) continue;
+      sounding++;
+      if (oldest < 0 || voice.age < voices[oldest]!.age) oldest = v;
+    }
+    if (sounding >= SAMPLER_POLY) voices[oldest]!.stealFade();
+    let pick = -1;
+    for (let v = 0; v < SAMPLER_VOICES; v++) {
+      if (!voices[v]!.active) {
+        pick = v;
+        break;
+      }
+    }
+    if (pick < 0) {
+      let quiet = Infinity;
+      for (let v = 0; v < SAMPLER_VOICES; v++) {
+        const l = voices[v]!.loudness();
+        if (l < quiet) {
+          quiet = l;
+          pick = v;
+        }
+      }
+    }
+    voices[pick]!.noteOn(ts.sampler, note, vel, id, id === 0, ++ts.fmAge);
+  }
+
+  private samplerNoteOff(ts: TrackState, note: number, id: number): void {
+    for (let v = 0; v < SAMPLER_VOICES; v++) {
+      const voice = ts.samplerVoices[v]!;
+      if (!voice.active || !voice.gate || voice.note !== note) continue;
+      if (id === 0 ? voice.live : voice.id === id) voice.noteOff(ts.sampler.chromatic);
     }
   }
 
@@ -491,6 +638,7 @@ export class Engine {
       const ts = this.tracks[t]!;
       // Both pools render (idle voices return at once) so a kind switch lets old voices fade out.
       for (let v = 0; v < FM_VOICES; v++) ts.fmVoices[v]!.render(ts.fm, ts.buf, from, to);
+      for (let v = 0; v < SAMPLER_VOICES; v++) ts.samplerVoices[v]!.render(ts.buf, from, to);
       for (let v = 0; v < VOICES_PER_TRACK; v++) ts.voices[v]!.render(ts.buf, from, to);
     }
   }
@@ -570,6 +718,7 @@ export class Engine {
         revIn[i]! += y * a;
         delIn[i]! += y * b;
       }
+      if (t === this.capSource) this.capture(ts.buf, ts.buf, n, blockStart, g, drive);
       ts.gain = g;
       ts.peak = pk;
       ts.curA = a;
@@ -609,6 +758,7 @@ export class Engine {
       left[i] = left[i]! * mg;
       right[i] = right[i]! * mg;
     }
+    if (this.capSource === -1) this.capture(left, right, n, blockStart, 1, 0);
     this.limiter.process(left, right, n);
 
     let mp = this.masterPeak;

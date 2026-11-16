@@ -22,7 +22,11 @@ class EngineProcessor extends AudioWorkletProcessor {
   constructor(options?: AudioWorkletNodeOptions) {
     super(options);
     const port = this.port;
-    this.engine.emit = (ev: EngineEvent) => port.postMessage(ev);
+    this.engine.emit = (ev: EngineEvent) => {
+      // Resampled audio goes back without copying.
+      if (ev.type === 'resampled') port.postMessage(ev, [ev.l.buffer, ev.r.buffer]);
+      else port.postMessage(ev);
+    };
     port.onmessage = (e: MessageEvent<EngineCommand>) => this.engine.command(e.data);
     // Initial state can be passed at construction (used by offline render tests,
     // where port messages could arrive after rendering has started).

@@ -3,7 +3,8 @@ import { Engine } from '../../src/engine/core';
 import type { EngineCommand, EngineEvent } from '../../src/engine/protocol';
 import { drumParams } from '../../src/store/defaults';
 import { parsePattern } from '../../src/store/notation';
-import type { DrumModel, DrumParams, FmPatch, Project } from '../../src/store/types';
+import type { DrumModel, DrumParams, FmPatch, Project, SamplerParams } from '../../src/store/types';
+import { samplerParams } from '../../src/store/defaults';
 
 export type Render = { left: Float32Array; right: Float32Array; events: EngineEvent[]; engine: Engine; sr: number };
 
@@ -65,7 +66,9 @@ export function sparseOnsets(buf: Float32Array, sr: number, thr = 1e-3, gapMs = 
 export function projectCommands(p: Project): EngineCommand[] {
   const cmds: EngineCommand[] = [{ type: 'tempo', bpm: p.bpm, swing: p.swing }];
   p.tracks.forEach((t, i) => {
-    cmds.push({ type: 'trackKind', track: i, kind: t.kind === 'drum' ? 'drum' : t.kind === 'fm' ? 'fm' : 'off' });
+    cmds.push({ type: 'trackKind', track: i, kind: t.kind });
+    if (t.kind === 'sampler') cmds.push({ type: 'samplerParams', track: i, params: t.params as SamplerParams });
+    cmds.push({ type: 'sends', track: i, a: t.macros[3].value, b: 0 });
     if (t.kind === 'drum') cmds.push({ type: 'drumParams', track: i, params: t.params as DrumParams });
     if (t.kind === 'fm') {
       cmds.push({ type: 'fmPatch', track: i, patch: t.params as FmPatch });
@@ -83,6 +86,16 @@ export function fmTrack(track: number, patch: FmPatch, pattern: string): EngineC
     { type: 'trackKind', track, kind: 'fm' },
     { type: 'fmPatch', track, patch },
     { type: 'macros', track, values: [0.5, 0.5, 0, 0] },
+    { type: 'pattern', track, pattern: parsePattern(pattern) },
+  ];
+}
+
+/** Commands to set one sampler track with a sample (sent as id 'test'), settings and a pattern. */
+export function samplerTrack(track: number, sample: { l: Float32Array; rate: number }, settings: Partial<SamplerParams>, pattern: string): EngineCommand[] {
+  return [
+    { type: 'trackKind', track, kind: 'sampler' },
+    { type: 'sample', id: 'test', l: sample.l, rate: sample.rate },
+    { type: 'samplerParams', track, params: { ...samplerParams('test', 'test'), ...settings } },
     { type: 'pattern', track, pattern: parsePattern(pattern) },
   ];
 }
