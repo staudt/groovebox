@@ -16,7 +16,9 @@ export function Waveform(props: { sampleId: string | null; start: number; end: n
   const [data, setData] = useState<Sample | null>(null);
   const [width, setWidth] = useState(0);
   const drag = useRef({ which: '' as '' | 'start' | 'end', first: true });
-  const peaksRef = useRef<{ w: number; id: string | null; p: Float32Array } | null>(null);
+  // Peaks cache, keyed by canvas width and the loaded audio itself (not just the id: the first
+  // render happens before the audio arrives, and those empty peaks must not stick).
+  const peaksRef = useRef<{ w: number; d: Sample | null; p: Float32Array } | null>(null);
 
   useEffect(() => {
     let live = true;
@@ -46,8 +48,8 @@ export function Waveform(props: { sampleId: string | null; start: number; end: n
     }
     const g = c.getContext('2d');
     if (!g) return;
-    if (!peaksRef.current || peaksRef.current.w !== pw || peaksRef.current.id !== props.sampleId || !data) {
-      peaksRef.current = { w: pw, id: props.sampleId, p: data ? computePeaks(data.l, data.r, pw) : new Float32Array(pw * 2) };
+    if (!peaksRef.current || peaksRef.current.w !== pw || peaksRef.current.d !== data) {
+      peaksRef.current = { w: pw, d: data, p: data ? computePeaks(data.l, data.r, pw) : new Float32Array(pw * 2) };
     }
     const p = peaksRef.current.p;
     g.clearRect(0, 0, pw, ph);

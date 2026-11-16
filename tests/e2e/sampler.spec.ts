@@ -39,13 +39,19 @@ test('PERC shows the sampler panel with the tambourine kit sample and a waveform
   await openSound(page, 'PERC');
   await expect(sampleName(page)).toContainText('tambourine');
   await expect(page.getByTestId('waveform-canvas')).toHaveAttribute('data-loaded', '1');
-  // the canvas actually has drawn pixels
-  const drawn = await page.getByTestId('waveform-canvas').evaluate((c: HTMLCanvasElement) => {
-    const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
-    for (let i = 3; i < d.length; i += 4) if (d[i]! > 0) return true;
-    return false;
-  });
-  expect(drawn).toBe(true);
+  // The waveform is really drawn: amber (#FFB547) pixels span many rows, not just a flat midline.
+  await expect
+    .poll(() =>
+      page.getByTestId('waveform-canvas').evaluate((c: HTMLCanvasElement) => {
+        const d = c.getContext('2d')!.getImageData(0, 0, c.width, c.height).data;
+        const rows = new Set<number>();
+        for (let i = 0; i < d.length; i += 4) {
+          if (d[i]! > 200 && d[i + 1]! > 150 && d[i + 1]! < 210 && d[i + 2]! < 120) rows.add(Math.floor(i / 4 / c.width));
+        }
+        return rows.size;
+      }),
+    )
+    .toBeGreaterThan(20);
 });
 
 test('choosing kit clap changes the sample name', async ({ page }) => {
