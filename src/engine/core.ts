@@ -1,15 +1,28 @@
-// Engine core: sample-accurate clock, step sequencer, drum voices, mixer, master limiter.
+// Engine core: sample-accurate clock, step sequencer, drum and FM voices, mixer, master limiter.
 // AUDIO THREAD CODE: no allocations in process() and no closures created per block.
 // Commands (command()) may copy into preallocated arrays; they run at UI rate, not per block.
 // Pure TypeScript with no Web Audio dependency, so it renders offline in Node for tests.
 import type { EngineCommand, EngineEvent } from './protocol';
 import { DrumSettings, DrumVoice, modelIndex } from './voices/drum';
+import { FmParams, FmVoice } from './fm/voice';
 import { Limiter } from './limiter';
 import { Noise, softClip } from './dsp';
 import { MAX_STEPS, MAX_TRACKS } from '../store/types';
 
 const MAX_BLOCK = 4096;
 const VOICES_PER_TRACK = 3;
+/** FM: 8 notes of polyphony per track, plus 2 spare voices so a stolen note can fade out instead of clicking. */
+const FM_POLY = 8;
+const FM_VOICES = FM_POLY + 2;
+const MAX_CHORD = 6;
+
+const KIND_OFF = 0;
+const KIND_DRUM = 1;
+const KIND_FM = 2;
+
+const EV_HIT = 0;
+const EV_ON = 1;
+const EV_OFF = 2;
 const QUEUE = 256;
 const METER_HZ = 30;
 /** Steps are scanned this far ahead so negative nudges (up to -0.5 step) can still fire on time. */
@@ -22,13 +35,18 @@ const ST_CHORD = 3;
 const ST_HOLD = 4;
 
 class TrackState {
-  enabled = false;
+  kind = KIND_OFF;
   mute = false;
   length = 16;
   readonly type = new Uint8Array(MAX_STEPS);
   readonly vel = new Float32Array(MAX_STEPS);
   readonly chance = new Float32Array(MAX_STEPS).fill(1);
   readonly nudge = new Float32Array(MAX_STEPS);
+  readonly notes = new Int16Array(MAX_STEPS * MAX_CHORD);
+  readonly noteCount = new Uint8Array(MAX_STEPS);
+  readonly fm = new FmParams();
+  readonly fmVoices: FmVoice[] = [];
+  fmAge = 0;
   readonly settings = new DrumSettings();
   readonly voices: DrumVoice[] = [];
   readonly buf = new Float32Array(MAX_BLOCK);
@@ -60,12 +78,16 @@ export class Engine {
   private swing = 50;
   private frame = 0; // absolute frames rendered so far
 
-  // Pending triggers (absolute frame, track, velocity). Unordered; scanned linearly.
+  // Pending events (absolute frame, kind, track, velocity, note, note id). Unordered; scanned linearly.
   private qFrame = new Float64Array(QUEUE);
+  private qType = new Uint8Array(QUEUE);
   private qTrack = new Int8Array(QUEUE);
   private qVel = new Float32Array(QUEUE);
-  private qSeq = new Uint8Array(QUEUE); // 1 = from the sequencer (dropped on stop), 0 = audition
+  private qNote = new Int16Array(QUEUE);
+  private qId = new Int32Array(QUEUE);
+  private qSeq = new Uint8Array(QUEUE); // 1 = from the sequencer (dropped on stop), 0 = live / audition
   private qLen = 0;
+  private noteIds = 0;
 
   private masterGain = 0.9;
   private masterPeak = 0;
@@ -81,6 +103,7 @@ export class Engine {
     for (let t = 0; t < MAX_TRACKS; t++) {
       const ts = new TrackState();
       for (let v = 0; v < VOICES_PER_TRACK; v++) ts.voices.push(new DrumVoice(sampleRate, 0x1234567 + t * 977 + v * 131));
+      for (let v = 0; v < FM_VOICES; v++) ts.fmVoices.push(new FmVoice(sampleRate));
       this.tracks.push(ts);
     }
   }
@@ -115,6 +138,14 @@ export class Engine {
         } else if (!cmd.playing && this.playing) {
           this.playing = false;
           this.dropSequenced();
+          // Sequenced FM notes lose their pending note-offs, so release them now (they ring out).
+          for (let t = 0; t < MAX_TRACKS; t++) {
+            const ts = this.tracks[t]!;
+            for (let v = 0; v < FM_VOICES; v++) {
+              const voice = ts.fmVoices[v]!;
+              if (voice.active && !voice.live) voice.noteOff(ts.fm);
+            }
+          }
           this.emit({ type: 'step', step: -1, time: this.timeOf(this.frame) });
         }
         break;
@@ -136,15 +167,23 @@ export class Engine {
           ts.vel[i] = 0;
           ts.chance[i] = 1;
           ts.nudge[i] = 0;
+          ts.noteCount[i] = 0;
           if (!s || i >= ts.length) continue;
           if (s.t === 'hit' || s.t === 'note') {
             ts.type[i] = s.t === 'hit' ? ST_HIT : ST_NOTE;
             ts.vel[i] = s.vel;
             ts.chance[i] = s.chance ?? 1;
             ts.nudge[i] = Math.max(-0.5, Math.min(0.5, s.nudge ?? 0));
+            if (s.t === 'note') {
+              ts.notes[i * MAX_CHORD] = s.note;
+              ts.noteCount[i] = 1;
+            }
           } else if (s.t === 'chord') {
             ts.type[i] = ST_CHORD;
             ts.vel[i] = s.vel;
+            const c = Math.min(MAX_CHORD, s.notes.length);
+            for (let k = 0; k < c; k++) ts.notes[i * MAX_CHORD + k] = s.notes[k]!;
+            ts.noteCount[i] = c;
           } else if (s.t === 'hold') {
             ts.type[i] = ST_HOLD;
           }
@@ -167,8 +206,41 @@ export class Engine {
       case 'trackKind': {
         const ts = this.tracks[cmd.track];
         if (ts) {
-          ts.enabled = cmd.kind === 'drum';
+          const kind = cmd.kind === 'drum' ? KIND_DRUM : cmd.kind === 'fm' ? KIND_FM : KIND_OFF;
+          if (kind !== ts.kind) {
+            for (let v = 0; v < VOICES_PER_TRACK; v++) ts.voices[v]!.release();
+            for (let v = 0; v < FM_VOICES; v++) ts.fmVoices[v]!.stealFade();
+          }
+          ts.kind = kind;
           this.snapGainIfSilent(ts);
+        }
+        break;
+      }
+      case 'fmPatch': {
+        const ts = this.tracks[cmd.track];
+        if (ts) ts.fm.set(cmd.patch);
+        break;
+      }
+      case 'macros': {
+        const ts = this.tracks[cmd.track];
+        if (!ts) return;
+        ts.fm.tone = cmd.values[0];
+        ts.fm.decayMacro = cmd.values[1];
+        if (ts.kind === KIND_FM) ts.drive = cmd.values[2];
+        break;
+      }
+      case 'noteOn':
+        this.enqueue(this.frame, EV_ON, cmd.track, cmd.vel, cmd.note, 0, 0);
+        break;
+      case 'noteOff':
+        this.enqueue(this.frame, EV_OFF, cmd.track, 0, cmd.note, 0, 0);
+        break;
+      case 'allNotesOff': {
+        const ts = this.tracks[cmd.track];
+        if (!ts) return;
+        for (let v = 0; v < FM_VOICES; v++) {
+          const voice = ts.fmVoices[v]!;
+          if (voice.active && voice.live) voice.noteOff(ts.fm);
         }
         break;
       }
@@ -181,35 +253,42 @@ export class Engine {
         break;
       }
       case 'trigger':
-        this.enqueue(this.frame, cmd.track, cmd.vel, 0);
+        this.enqueue(this.frame, EV_HIT, cmd.track, cmd.vel, 0, 0, 0);
         break;
     }
   }
 
   private targetGain(ts: TrackState): number {
-    return ts.enabled && !ts.mute ? ts.level * ts.level : 0;
+    return ts.kind !== KIND_OFF && !ts.mute ? ts.level * ts.level : 0;
   }
 
   /** Gain smoothing only matters while sound is playing; a silent track jumps straight to its target. */
   private snapGainIfSilent(ts: TrackState): void {
     for (let v = 0; v < VOICES_PER_TRACK; v++) if (ts.voices[v]!.active) return;
+    for (let v = 0; v < FM_VOICES; v++) if (ts.fmVoices[v]!.active) return;
     ts.gain = this.targetGain(ts);
   }
 
-  private enqueue(frame: number, track: number, vel: number, seq: number): void {
+  private enqueue(frame: number, type: number, track: number, vel: number, note: number, id: number, seq: number): void {
     if (this.qLen >= QUEUE) return; // drop rather than allocate
     const i = this.qLen++;
     this.qFrame[i] = frame;
+    this.qType[i] = type;
     this.qTrack[i] = track;
     this.qVel[i] = vel;
+    this.qNote[i] = note;
+    this.qId[i] = id;
     this.qSeq[i] = seq;
   }
 
   private removeAt(i: number): void {
     const last = --this.qLen;
     this.qFrame[i] = this.qFrame[last]!;
+    this.qType[i] = this.qType[last]!;
     this.qTrack[i] = this.qTrack[last]!;
     this.qVel[i] = this.qVel[last]!;
+    this.qNote[i] = this.qNote[last]!;
+    this.qId[i] = this.qId[last]!;
     this.qSeq[i] = this.qSeq[last]!;
   }
 
@@ -241,22 +320,91 @@ export class Engine {
       this.emit({ type: 'step', step: s, time: this.timeOf(Math.max(gridFrame, blockStart)) });
       for (let t = 0; t < MAX_TRACKS; t++) {
         const ts = this.tracks[t]!;
-        if (!ts.enabled) continue;
+        if (ts.kind === KIND_OFF) continue;
         const i = s % ts.length;
         const type = ts.type[i]!;
         if (type !== ST_HIT && type !== ST_NOTE && type !== ST_CHORD) continue;
         const ch = ts.chance[i]!;
         if (ch < 1 && this.rng.unit() >= ch) continue;
-        const at = this.frameAt(s + swing + ts.nudge[i]!);
-        this.enqueue(Math.max(at, blockStart), t, ts.vel[i]!, 1);
+        const at = Math.max(this.frameAt(s + swing + ts.nudge[i]!), blockStart);
+        if (ts.kind === KIND_DRUM) {
+          this.enqueue(at, EV_HIT, t, ts.vel[i]!, 0, 0, 1);
+          continue;
+        }
+        // FM: the note lasts until the end of the holds that follow it (legato across holds).
+        let holds = 0;
+        while (holds < ts.length - 1 && ts.type[(i + 1 + holds) % ts.length] === ST_HOLD) holds++;
+        const end = s + 1 + holds;
+        const offAt = Math.max(at + 1, this.frameAt(end + this.swingDelay(end)));
+        const count = ts.noteCount[i]!;
+        for (let k = 0; k < count; k++) {
+          const id = ++this.noteIds;
+          const note = ts.notes[i * MAX_CHORD + k]!;
+          this.enqueue(at, EV_ON, t, ts.vel[i]!, note, id, 1);
+          this.enqueue(offAt, EV_OFF, t, 0, note, id, 1);
+        }
       }
       this.nextStep++;
     }
   }
 
-  private trigger(t: number, vel: number): void {
-    const ts = this.tracks[t];
-    if (!ts || !ts.enabled) return;
+  /** Starts an FM note. id 0 = live note (keyboard), otherwise the sequencer's note id. */
+  private fmNoteOn(ts: TrackState, note: number, vel: number, id: number): void {
+    const voices = ts.fmVoices;
+    // Enforce polyphony: if FM_POLY notes are already sounding, fade out the oldest (released ones first).
+    let sounding = 0;
+    let oldest = -1;
+    let oldestReleased = -1;
+    for (let v = 0; v < FM_VOICES; v++) {
+      const voice = voices[v]!;
+      if (!voice.active || voice.stealing) continue;
+      sounding++;
+      if (oldest < 0 || voice.age < voices[oldest]!.age) oldest = v;
+      if (!voice.gate && (oldestReleased < 0 || voice.age < voices[oldestReleased]!.age)) oldestReleased = v;
+    }
+    if (sounding >= FM_POLY) voices[oldestReleased >= 0 ? oldestReleased : oldest]!.stealFade();
+    // Take a free voice; if all are busy (rare), reuse the quietest fading one.
+    let pick = -1;
+    for (let v = 0; v < FM_VOICES; v++) {
+      if (!voices[v]!.active) {
+        pick = v;
+        break;
+      }
+    }
+    if (pick < 0) {
+      let quiet = Infinity;
+      for (let v = 0; v < FM_VOICES; v++) {
+        const l = voices[v]!.loudness(ts.fm);
+        if (l < quiet) {
+          quiet = l;
+          pick = v;
+        }
+      }
+    }
+    voices[pick]!.noteOn(ts.fm, note, vel, id, id === 0, ++ts.fmAge);
+  }
+
+  private fmNoteOff(ts: TrackState, note: number, id: number): void {
+    for (let v = 0; v < FM_VOICES; v++) {
+      const voice = ts.fmVoices[v]!;
+      if (!voice.active || !voice.gate || voice.note !== note) continue;
+      if (id === 0 ? voice.live : voice.id === id) voice.noteOff(ts.fm);
+    }
+  }
+
+  private dispatch(i: number): void {
+    const ts = this.tracks[this.qTrack[i]!];
+    if (!ts) return;
+    const type = this.qType[i]!;
+    if (type === EV_HIT) {
+      if (ts.kind === KIND_DRUM) this.trigger(ts, this.qVel[i]!);
+    } else if (ts.kind === KIND_FM) {
+      if (type === EV_ON) this.fmNoteOn(ts, this.qNote[i]!, this.qVel[i]!, this.qId[i]!);
+      else this.fmNoteOff(ts, this.qNote[i]!, this.qId[i]!);
+    }
+  }
+
+  private trigger(ts: TrackState, vel: number): void {
     // Choke the sounding voices (fast fade) and start the hit on a free voice, else the quietest.
     let free = -1;
     let quietest = 0;
@@ -277,6 +425,8 @@ export class Engine {
     if (to <= from) return;
     for (let t = 0; t < MAX_TRACKS; t++) {
       const ts = this.tracks[t]!;
+      // Both pools render (idle voices return at once) so a kind switch lets old voices fade out.
+      for (let v = 0; v < FM_VOICES; v++) ts.fmVoices[v]!.render(ts.fm, ts.buf, from, to);
       for (let v = 0; v < VOICES_PER_TRACK; v++) ts.voices[v]!.render(ts.buf, from, to);
     }
   }
@@ -306,10 +456,8 @@ export class Engine {
       const off = Math.max(cursor, Math.min(n, Math.round(bestF - blockStart)));
       this.renderVoices(cursor, off);
       cursor = off;
-      const t = this.qTrack[best]!;
-      const vel = this.qVel[best]!;
+      this.dispatch(best);
       this.removeAt(best);
-      this.trigger(t, vel);
     }
     this.renderVoices(cursor, n);
 

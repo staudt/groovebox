@@ -3,7 +3,7 @@ import { Engine } from '../../src/engine/core';
 import type { EngineCommand, EngineEvent } from '../../src/engine/protocol';
 import { drumParams } from '../../src/store/defaults';
 import { parsePattern } from '../../src/store/notation';
-import type { DrumModel, DrumParams, Project } from '../../src/store/types';
+import type { DrumModel, DrumParams, FmPatch, Project } from '../../src/store/types';
 
 export type Render = { left: Float32Array; right: Float32Array; events: EngineEvent[]; engine: Engine; sr: number };
 
@@ -65,10 +65,24 @@ export function sparseOnsets(buf: Float32Array, sr: number, thr = 1e-3, gapMs = 
 export function projectCommands(p: Project): EngineCommand[] {
   const cmds: EngineCommand[] = [{ type: 'tempo', bpm: p.bpm, swing: p.swing }];
   p.tracks.forEach((t, i) => {
-    cmds.push({ type: 'trackKind', track: i, kind: t.kind === 'drum' ? 'drum' : 'off' });
+    cmds.push({ type: 'trackKind', track: i, kind: t.kind === 'drum' ? 'drum' : t.kind === 'fm' ? 'fm' : 'off' });
     if (t.kind === 'drum') cmds.push({ type: 'drumParams', track: i, params: t.params as DrumParams });
+    if (t.kind === 'fm') {
+      cmds.push({ type: 'fmPatch', track: i, patch: t.params as FmPatch });
+      cmds.push({ type: 'macros', track: i, values: [t.macros[0].value, t.macros[1].value, t.macros[2].value, t.macros[3].value] });
+    }
     cmds.push({ type: 'pattern', track: i, pattern: t.patterns.A });
   });
   return cmds;
 }
 
+
+/** Commands to set one FM track with a patch and a pattern. */
+export function fmTrack(track: number, patch: FmPatch, pattern: string): EngineCommand[] {
+  return [
+    { type: 'trackKind', track, kind: 'fm' },
+    { type: 'fmPatch', track, patch },
+    { type: 'macros', track, values: [0.5, 0.5, 0, 0] },
+    { type: 'pattern', track, pattern: parsePattern(pattern) },
+  ];
+}

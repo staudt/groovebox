@@ -4,7 +4,7 @@ import { effect } from '@preact/signals';
 import workletUrl from './worklet.ts?worker&url';
 import type { EngineCommand, EngineEvent } from './protocol';
 import { currentPattern, playing, project } from '../store/project';
-import type { DrumParams, Project } from '../store/types';
+import type { DrumParams, FmPatch, Project, Track } from '../store/types';
 import { ensureRunning, getAudioContext } from '../platform/audio';
 
 let node: AudioWorkletNode | null = null;
@@ -63,11 +63,20 @@ export function readMeters(): Readonly<{ tracks: Float32Array; master: number }>
   return meters;
 }
 
+const engineKind = (t: Track) => (t.kind === 'drum' ? 'drum' : t.kind === 'fm' ? 'fm' : 'off');
+const macroValues = (t: Track): [number, number, number, number] => [t.macros[0].value, t.macros[1].value, t.macros[2].value, t.macros[3].value];
+
+function postParams(t: Track, i: number): void {
+  if (t.kind === 'drum') post({ type: 'drumParams', track: i, params: t.params as DrumParams });
+  else if (t.kind === 'fm') post({ type: 'fmPatch', track: i, patch: t.params as FmPatch });
+}
+
 function syncAll(p: Project): void {
   post({ type: 'tempo', bpm: p.bpm, swing: p.swing });
   p.tracks.forEach((t, i) => {
-    post({ type: 'trackKind', track: i, kind: t.kind === 'drum' ? 'drum' : 'off' });
-    if (t.kind === 'drum') post({ type: 'drumParams', track: i, params: t.params as DrumParams });
+    post({ type: 'trackKind', track: i, kind: engineKind(t) });
+    postParams(t, i);
+    if (t.kind === 'fm') post({ type: 'macros', track: i, values: macroValues(t) });
     post({ type: 'pattern', track: i, pattern: t.patterns[currentPattern.value] });
     post({ type: 'mute', track: i, mute: t.mute });
   });
@@ -87,7 +96,9 @@ function startSync(): void {
       p.tracks.forEach((t, i) => {
         const o = prev!.tracks[i]!;
         if (t === o && pat === prevPat) return;
-        if (t.params !== o.params && t.kind === 'drum') post({ type: 'drumParams', track: i, params: t.params as DrumParams });
+        if (t.kind !== o.kind) post({ type: 'trackKind', track: i, kind: engineKind(t) });
+        if (t.params !== o.params) postParams(t, i);
+        if (t.macros !== o.macros && t.kind === 'fm') post({ type: 'macros', track: i, values: macroValues(t) });
         if (t.patterns[pat] !== o.patterns[prevPat] || pat !== prevPat) post({ type: 'pattern', track: i, pattern: t.patterns[pat] });
         if (t.mute !== o.mute) post({ type: 'mute', track: i, mute: t.mute });
       });
@@ -122,6 +133,27 @@ export function startAudio(): Promise<void> {
 export async function togglePlay(): Promise<void> {
   await startAudio();
   playing.value = !playing.value;
+}
+
+/** Start a live note on a melodic track (keyboard, MIDI). Pair with noteOff. */
+export async function noteOn(track: number, note: number, vel = 100): Promise<void> {
+  await startAudio();
+  post({ type: 'noteOn', track, note, vel });
+}
+
+export function noteOff(track: number, note: number): void {
+  post({ type: 'noteOff', track, note });
+}
+
+export function allNotesOff(track: number): void {
+  post({ type: 'allNotesOff', track });
+}
+
+/** Play a short preview of notes (picker taps, step selection). Releases after `ms`. */
+export async function previewNotes(track: number, notes: readonly number[], vel = 100, ms = 350): Promise<void> {
+  await startAudio();
+  for (const n of notes) post({ type: 'noteOn', track, note: n, vel });
+  setTimeout(() => notes.forEach((n) => post({ type: 'noteOff', track, note: n })), ms);
 }
 
 /** Audition a drum track immediately (pads, step preview). */
