@@ -6,6 +6,8 @@ import { Transport } from '../ui/Transport';
 import { TrackStrip } from '../ui/TrackStrip';
 import { BottomNav } from '../ui/BottomNav';
 import { Play } from '../screens/Play';
+import { Sound } from '../screens/Sound';
+import { screen } from './nav';
 
 function nextPlayable(): void {
   const tracks = project.value.tracks;
@@ -65,7 +67,7 @@ export function App() {
         <TrackStrip />
       </div>
       <main class="app-main">
-        <Play />
+        {screen.value === 'sound' ? <Sound /> : <Play />}
       </main>
       <BottomNav />
     </div>
