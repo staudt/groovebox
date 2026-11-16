@@ -22,5 +22,5 @@
 - `../beatboy` (same author, MIT; samples CC0) supplied toolchain versions, the licence-notices script and audio unlock. Its CC0 acoustic kit is earmarked for the Phase 3 sampler; its main-thread scheduler is not used (the clock lives in the worklet).
 - The "Euclid" button in the mockup is a Euclidean fill (hits, rotate) for drum tracks.
 - PERC plays the synth perc voice until the sampler exists.
-- Service worker only registers in production builds. Over the self-signed LAN cert it will not register (Chrome refuses), so offline/install on the phone needs a real deploy later.
+- Service worker only registers in production builds. Over the self-signed LAN cert it will not register (Chrome refuses); the GitHub Pages deploy (https://staudt.github.io/groovebox/, from `master`) is the place to test install and offline.
 - Engine modules are excluded from Preact's dev transform (its HMR glue breaks the worklet scope).
