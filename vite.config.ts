@@ -7,7 +7,11 @@ import { serviceWorker } from './scripts/sw-plugin';
 export default defineConfig(({ mode }) => ({
   base: './',
   // `pnpm dev:lan` serves https on the LAN (self-signed) so the phone gets a secure context for AudioWorklet.
-  plugins: [preact(), serviceWorker(), ...(mode === 'lan' ? [basicSsl()] : [])],
+  plugins: [
+    // Engine modules also run inside the AudioWorklet, which has no DOM: keep Preact's dev-only
+    // refresh/debug injection (it imports the Vite HMR client) out of them.
+    preact({ exclude: [/\/src\/engine\//, /\/src\/store\/types\.ts$/] }),
+    serviceWorker(), ...(mode === 'lan' ? [basicSsl()] : [])],
   build: {
     rollupOptions: {
       // The engine render harness page is only built for tests (`--mode test`).
