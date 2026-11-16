@@ -6,8 +6,12 @@ import '@fontsource/ibm-plex-mono/500.css';
 import './ui/tokens.css';
 import './ui/ui.css';
 import { App } from './app/App';
+import { startPersistence } from './store/persist';
 
-render(<App />, document.getElementById('app')!);
+// Restore the autosaved project before the first render (falls back to the default on any error).
+void startPersistence()
+  .catch(() => {})
+  .finally(() => render(<App />, document.getElementById('app')!));
 
 // Offline support (production builds only; dev and test builds skip the service worker).
 if (import.meta.env.MODE === 'production' && 'serviceWorker' in navigator) {
