@@ -1,7 +1,7 @@
 // Project store: single source of truth on the main thread.
 // Every mutation goes through `apply(cmd)`, which records its inverse for undo/redo.
 import { batch, computed, signal } from '@preact/signals';
-import type { DrumParams, FmOpKey, FmPatch, PatternId, PitchClass, Project, ScaleName, Step, Track } from './types';
+import type { DrumParams, FmOpKey, FmPatch, PatternId, PitchClass, Project, SamplerParams, ScaleName, Step, Track } from './types';
 import { BPM_MAX, BPM_MIN, SWING_MAX, SWING_MIN } from './types';
 import { defaultProject } from './defaults';
 
@@ -18,6 +18,8 @@ export type Command =
   /** One operator parameter; op is 0..5 (OP1..OP6). */
   | { type: 'setFmOp'; track: number; op: number; key: FmOpKey; value: number }
   | { type: 'setFmGlobal'; track: number; key: 'algorithm' | 'feedback'; value: number }
+  /** Change some sampler settings (sample choice, trim, pitch, mode...). Values are clamped. */
+  | { type: 'setSampler'; track: number; patch: Partial<Omit<SamplerParams, 'kind'>> }
   | { type: 'setKey'; key: PitchClass }
   | { type: 'setScale'; scale: ScaleName };
 
@@ -54,6 +56,25 @@ export const FM_OP_RANGE: Record<FmOpKey, [number, number]> = {
   r: [0, 1],
   velSens: [0, 7],
 };
+
+/** Clamps sampler settings to legal ranges (keeps end > start). */
+export function clampSampler(s: SamplerParams): SamplerParams {
+  const start = clamp(s.start, 0, 0.999);
+  return {
+    ...s,
+    kind: 'sampler',
+    name: String(s.name ?? 'Sample').slice(0, 40),
+    start,
+    end: clamp(Math.max(s.end, start + 0.001), 0.001, 1),
+    pitch: clamp(Math.round(s.pitch), -24, 24),
+    root: clamp(Math.round(s.root), 0, 127),
+    level: clamp(s.level, 0, 1),
+    attack: clamp(s.attack, 0, 1),
+    release: clamp(s.release, 0, 1),
+    mode: s.mode === 'chromatic' ? 'chromatic' : 'oneshot',
+    reverse: !!s.reverse,
+  };
+}
 
 /** Clamps every number in a patch to its legal range (used for presets, random, imports and LLM output). */
 export function clampPatch(p: FmPatch): FmPatch {
@@ -150,6 +171,13 @@ export function reduce(p: Project, cmd: Command): [Project, Command] {
       const prev = patch[cmd.key];
       const value = cmd.key === 'algorithm' ? Math.round(clamp(cmd.value, 1, 32)) : Math.round(clamp(cmd.value, 0, 7));
       return [mapTrack(p, cmd.track, (t) => ({ ...t, params: { ...patch, [cmd.key]: value } })), { ...cmd, value: prev }];
+    }
+    case 'setSampler': {
+      const prev = p.tracks[cmd.track]!.params as SamplerParams;
+      const next = clampSampler({ ...prev, ...cmd.patch });
+      const inverse: Partial<Omit<SamplerParams, 'kind'>> = {};
+      for (const k of Object.keys(cmd.patch) as (keyof Omit<SamplerParams, 'kind'>)[]) (inverse as Record<string, unknown>)[k] = prev[k];
+      return [mapTrack(p, cmd.track, (t) => ({ ...t, params: next })), { ...cmd, patch: inverse }];
     }
     case 'setKey':
       return [{ ...p, key: (((Math.round(cmd.key) % 12) + 12) % 12) as PitchClass }, { type: 'setKey', key: p.key }];

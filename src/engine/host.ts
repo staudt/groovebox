@@ -5,7 +5,8 @@ import workletUrl from './worklet.ts?worker&url';
 import type { EngineCommand, EngineEvent } from './protocol';
 import type { FxId } from './fx/ids';
 import { currentPattern, playing, project, selectedTrack, soloSelected } from '../store/project';
-import type { DrumParams, FmPatch, Project, Track } from '../store/types';
+import type { DrumParams, FmPatch, Project, SamplerParams, Track } from '../store/types';
+import { getSample } from '../store/samples';
 import { ensureRunning, getAudioContext } from '../platform/audio';
 
 let node: AudioWorkletNode | null = null;
@@ -34,6 +35,10 @@ function onEvent(ev: EngineEvent): void {
     stepTimes[stepWrite] = ev.time;
     stepIdx[stepWrite] = ev.step;
     stepWrite = (stepWrite + 1) % STEP_RING;
+  } else if (ev.type === 'resampled') {
+    const done = pendingResamples.get(ev.id);
+    pendingResamples.delete(ev.id);
+    done?.({ l: ev.l, r: ev.r, rate: getAudioContext().sampleRate });
   } else if (ev.type === 'meters') {
     for (let i = 0; i < 8; i++) meters.tracks[i] = ev.tracks[i] ?? 0;
     meters.master = ev.master;
@@ -64,12 +69,45 @@ export function readMeters(): Readonly<{ tracks: Float32Array; master: number }>
   return meters;
 }
 
-const engineKind = (t: Track) => (t.kind === 'drum' ? 'drum' : t.kind === 'fm' ? 'fm' : 'off');
+const engineKind = (t: Track) => t.kind;
+
+// Samples already sent to the engine (by id), and loads in flight.
+const loadedSamples = new Set<string>();
+const loadingSamples = new Map<string, Promise<void>>();
+
+/** Makes sure the engine has sample `id` (kit or user); safe to call repeatedly. */
+export function ensureSample(id: string | null): Promise<void> {
+  if (!id || loadedSamples.has(id)) return Promise.resolve();
+  let p = loadingSamples.get(id);
+  if (!p) {
+    p = getSample(id).then((s) => {
+      loadingSamples.delete(id);
+      if (!s || !node) return;
+      // Copies are sent so the main-thread cache stays usable (waveform drawing).
+      post({ type: 'sample', id, l: s.l.slice(), ...(s.r ? { r: s.r.slice() } : {}), rate: s.rate });
+      loadedSamples.add(id);
+    });
+    loadingSamples.set(id, p);
+  }
+  return p;
+}
+
+/** Re-sends a sample after its audio changed (e.g. trimmed recording saved under the same id). */
+export function reloadSample(id: string): Promise<void> {
+  loadedSamples.delete(id);
+  return ensureSample(id);
+}
 const macroValues = (t: Track): [number, number, number, number] => [t.macros[0].value, t.macros[1].value, t.macros[2].value, t.macros[3].value];
 
 function postParams(t: Track, i: number): void {
   if (t.kind === 'drum') post({ type: 'drumParams', track: i, params: t.params as DrumParams });
   else if (t.kind === 'fm') post({ type: 'fmPatch', track: i, patch: t.params as FmPatch });
+  else if (t.kind === 'sampler') {
+    const sp = t.params as SamplerParams;
+    post({ type: 'samplerParams', track: i, params: sp });
+    // Params reference the sample by id; the engine links it as soon as the audio arrives.
+    void ensureSample(sp.sampleId);
+  }
 }
 
 function syncAll(p: Project): void {
@@ -172,6 +210,25 @@ export async function fxPress(fx: FxId, on: boolean, target: number, x?: number,
 /** Move a held effect's XY parameters (0..1). */
 export function fxXY(fx: FxId, x: number, y: number): void {
   post({ type: 'fxXY', fx, x, y });
+}
+
+const pendingResamples = new Map<string, (s: { l: Float32Array; r: Float32Array; rate: number }) => void>();
+
+/**
+ * Records `bars` bars of the master (source -1) or a track into a new buffer, starting at the next
+ * bar while playing (else at once). Resolves with the audio; the caller decides whether to save it.
+ */
+export async function resample(source: number, bars: number): Promise<{ l: Float32Array; r: Float32Array; rate: number }> {
+  await startAudio();
+  const ctx = getAudioContext();
+  const frames = Math.round(((ctx.sampleRate * 60) / project.peek().bpm) * 4 * bars);
+  const id = `r${Date.now().toString(36)}`;
+  const l = new Float32Array(frames);
+  const r = new Float32Array(frames);
+  return new Promise((resolve) => {
+    pendingResamples.set(id, (s) => resolve(s));
+    node!.port.postMessage({ type: 'resample', id, source, l, r } satisfies EngineCommand, [l.buffer, r.buffer]);
+  });
 }
 
 /** Audition a drum track immediately (pads, step preview). */

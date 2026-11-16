@@ -1,8 +1,8 @@
 import { parsePattern } from './notation';
 import { presetByName } from './fmPresets';
-import type { DrumModel, DrumParams, MacroMap, Pattern, PatternId, Project, Track, TrackKind } from './types';
+import type { DrumModel, DrumParams, MacroMap, Pattern, PatternId, Project, SamplerParams, Track, TrackKind } from './types';
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 const empty = (): Pattern => parsePattern('', 16);
 
@@ -24,6 +24,10 @@ export function drumParams(model: DrumModel): DrumParams {
   }
 }
 
+export function samplerParams(sampleId: string | null = null, name = 'Empty'): SamplerParams {
+  return { kind: 'sampler', name, sampleId, start: 0, end: 1, pitch: 0, reverse: false, mode: 'oneshot', root: 60, level: 0.8, attack: 0, release: 0.3 };
+}
+
 function macros(p: DrumParams | null, space = 0): Track['macros'] {
   const m = (label: string, value: number, targets: string[]): MacroMap => ({ label, value, targets });
   return [
@@ -35,7 +39,7 @@ function macros(p: DrumParams | null, space = 0): Track['macros'] {
 }
 
 function makeTrack(i: number, name: string, kind: TrackKind, model: DrumModel | null, pat: string, preset = 'Init', space = 0): Track {
-  const params = model ? drumParams(model) : kind === 'fm' ? presetByName(preset) : { kind: 'sampler' as const, name: 'Empty' };
+  const params = model ? drumParams(model) : kind === 'fm' ? presetByName(preset) : preset.startsWith('kit:') ? samplerParams(preset, preset.slice(4)) : samplerParams();
   return {
     id: `t${i}`,
     name,
@@ -62,8 +66,7 @@ export function defaultProject(): Project {
       makeTrack(3, 'BASS', 'fm', null, 'C2 . C2 . . Eb2 . . Ab1 . Ab1 . . G1 ~ .', 'Round Bass'),
       makeTrack(4, 'KEYS', 'fm', null, '', 'Electric Piano', 0.2),
       makeTrack(5, 'PAD', 'fm', null, 'Cm* ~ ~ ~ ~ ~ ~ ~ Ab* ~ ~ ~ ~ ~ ~ ~', 'Soft Pad', 0.35),
-      // PERC is a sampler track in the mockup; until the sampler lands it plays the synth perc voice.
-      makeTrack(6, 'PERC', 'drum', 'perc', '. . . . . . . x60 . . x50 . . . . .'),
+      makeTrack(6, 'PERC', 'sampler', null, '. . . . . . . x60 . . x50 . . . . .', 'kit:tambourine'),
       makeTrack(7, 'VOX', 'sampler', null, ''),
     ],
     sections: [],
@@ -73,6 +76,7 @@ export function defaultProject(): Project {
   };
 }
 
-/** Tracks whose engine exists (sampler tracks unlock in Phase 3). */
-export const isPlayable = (t: Track) => t.kind === 'drum' || t.kind === 'fm';
-export const isMelodic = (t: Track) => t.kind === 'fm';
+/** Every track kind has an engine now. */
+export const isPlayable = (_t: Track) => true;
+/** Melodic tracks use notes, holds and chords: FM, and samplers in chromatic mode. */
+export const isMelodic = (t: Track) => t.kind === 'fm' || (t.kind === 'sampler' && (t.params as SamplerParams).mode === 'chromatic');

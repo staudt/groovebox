@@ -2,14 +2,16 @@
 // Small hand-written wrapper; no runtime dependency.
 import { effect } from '@preact/signals';
 import type { FmPatch, Project } from './types';
-import { SCHEMA_VERSION, defaultProject } from './defaults';
+import { SCHEMA_VERSION, defaultProject, samplerParams } from './defaults';
 import { clampPatch, project, resetProject } from './project';
 
 const DB = 'groovebox';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const PROJECTS = 'projects';
 const PATCHES = 'patches';
 const CURRENT = 'current';
+/** Sample metadata (and the audio itself where OPFS is unavailable); see samples.ts. */
+export const SAMPLES = 'samples';
 
 let dbp: Promise<IDBDatabase> | null = null;
 
@@ -21,6 +23,7 @@ function db(): Promise<IDBDatabase> {
         const d = req.result;
         if (!d.objectStoreNames.contains(PROJECTS)) d.createObjectStore(PROJECTS);
         if (!d.objectStoreNames.contains(PATCHES)) d.createObjectStore(PATCHES, { keyPath: 'name' });
+        if (!d.objectStoreNames.contains(SAMPLES)) d.createObjectStore(SAMPLES, { keyPath: 'id' });
       };
       req.onsuccess = () => resolve(req.result);
       req.onerror = () => reject(req.error);
@@ -29,7 +32,7 @@ function db(): Promise<IDBDatabase> {
   return dbp;
 }
 
-function run<T>(store: string, mode: IDBTransactionMode, f: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
+export function run<T>(store: string, mode: IDBTransactionMode, f: (s: IDBObjectStore) => IDBRequest<T>): Promise<T> {
   return db().then(
     (d) =>
       new Promise<T>((resolve, reject) => {
@@ -48,8 +51,20 @@ export function migrate(raw: unknown): Project | null {
   const p = raw as Project;
   if (typeof p.version !== 'number' || p.version > SCHEMA_VERSION) return null;
   if (!Array.isArray(p.tracks) || p.tracks.length !== 8) return null;
-  // v1 is the first persisted schema; future migrations go here, one step per version.
-  return p;
+  let out = p;
+  // v1 -> v2: real sampler params; PERC (a drum stand-in until the sampler existed) becomes a kit sampler.
+  if (out.version < 2) {
+    out = {
+      ...out,
+      version: 2,
+      tracks: out.tracks.map((t) => {
+        if (t.kind === 'sampler') return { ...t, params: { ...samplerParams(), ...(t.params as object), kind: 'sampler' as const } };
+        if (t.name === 'PERC' && t.kind === 'drum') return { ...t, kind: 'sampler' as const, params: samplerParams('kit:tambourine', 'tambourine') };
+        return t;
+      }),
+    };
+  }
+  return out;
 }
 
 export async function saveProject(p: Project): Promise<void> {

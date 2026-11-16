@@ -57,8 +57,26 @@ export type FmPatch = {
   ops: [FmOperator, FmOperator, FmOperator, FmOperator, FmOperator, FmOperator];
 };
 
-/** Placeholder until Phase 3 defines it. */
-export type SamplerParams = { kind: 'sampler'; name: string };
+/**
+ * Sampler track. `sampleId` refers to the sample store ("kit:<sound>" for the built-in kit,
+ * otherwise a user sample id); null = nothing loaded yet.
+ * One-shot: every hit or note plays the sample at `pitch`. Chromatic: notes transpose from `root`,
+ * holds set the note length.
+ */
+export type SamplerParams = {
+  kind: 'sampler';
+  name: string;
+  sampleId: string | null;
+  start: number; // 0..1 of the sample
+  end: number; // 0..1, > start
+  pitch: number; // semitones -24..24
+  reverse: boolean;
+  mode: 'oneshot' | 'chromatic';
+  root: Midi;
+  level: number; // 0..1
+  attack: number; // 0..1 (exp-mapped, 1 ms .. 1 s)
+  release: number; // 0..1 (exp-mapped, 5 ms .. 4 s)
+};
 
 /**
  * A macro knob, 0..1. Drum tracks: the value is written into the targeted drum params.
