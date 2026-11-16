@@ -1,0 +1,43 @@
+:root {
+  --ground: #121316;
+  --surface: #1a1c21;
+  --raised: #1e2026;
+  --border: #2e313a;
+  --text: #ecedef;
+  --muted: #9a9da6;
+  --text-2: #c9cbd1;
+  --step-off: #1c1e23;
+  --step-beat: #24272e;
+  --step-border: #2a2d34;
+  --bar: #16171b;
+  --bar-border: #23262d;
+  --accent: #ffb547;
+  --assist: #5cc8ff;
+  --assist-bg: #172129;
+  --assist-border: #2b4a5c;
+  --assist-text: #9fd9f7;
+  --fx: #ff6b5e;
+  --font-ui: 'Space Grotesk', system-ui, sans-serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body, #app { height: 100%; margin: 0; }
+body {
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--font-ui);
+  overflow: hidden;
+  overscroll-behavior: none;
+  touch-action: manipulation;
+}
+button, input { font: inherit; color: inherit; }
+button {
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: pointer;
+  padding: 0;
+}
+button:disabled { cursor: default; }
+button:focus-visible, input:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
