@@ -145,3 +145,23 @@ test('no horizontal page scroll', async ({ page }) => {
   const ok = await page.evaluate(() => document.scrollingElement!.scrollWidth <= window.innerWidth);
   expect(ok).toBe(true);
 });
+
+test('Euclid on a melodic track writes notes, not drum hits', async ({ page }) => {
+  await page.locator('.strip').getByRole('button', { name: /^KEYS/ }).click();
+  await expect(page.getByText('KEYS · 16 steps')).toBeVisible();
+  await page.getByRole('button', { name: 'Euclid', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Euclid' });
+  await dialog.getByRole('button', { name: 'Apply' }).click(); // default 4 hits
+  await expect(dialog).toBeHidden();
+  // KEYS is in C minor at octave 3 by default: four C3 notes.
+  await expect(page.getByRole('button', { name: /^Step \d+$/ }).filter({ hasText: 'C3' })).toHaveCount(4);
+});
+
+test('Solo sits next to Euclid on Play and on the Sound screen', async ({ page }) => {
+  const header = page.getByRole('button', { name: 'Euclid', exact: true }).locator('..');
+  await expect(header.getByRole('button', { name: 'Solo the selected track' })).toBeVisible();
+  await expect(page.locator('.strip').getByRole('button', { name: 'Solo the selected track' })).toHaveCount(0);
+  await header.getByRole('button', { name: 'Solo the selected track' }).click();
+  await page.getByRole('button', { name: /^Sound/ }).click();
+  await expect(page.getByRole('button', { name: 'Solo the selected track' })).toHaveAttribute('aria-pressed', 'true');
+});

@@ -11,6 +11,7 @@ import { AlgDiagram } from '../ui/AlgDiagram';
 import { DragValue } from '../ui/DragValue';
 import { EnvelopeEditor, type EnvChange } from '../ui/EnvelopeEditor';
 import { KeyboardDrawer } from '../ui/KeyboardDrawer';
+import { SoloButton } from '../ui/SoloButton';
 import '../ui/sound.css';
 
 const selOp = signal(0);
@@ -118,6 +119,7 @@ function FmSound(props: { patch: FmPatch }) {
           preview(t);
         }}>Random</button>
         <button class="sn-btn" onClick={() => setSave(true)}>Save</button>
+        <SoloButton />
       </div>
 
       <div class="sn-card">
@@ -219,6 +221,7 @@ function DrumSound(props: { p: DrumParams }) {
           <span class="sn-name" style={{ lineHeight: '24px' }}>{track.value.name}</span>
           <span class="sn-sub">drum synth</span>
         </div>
+        <SoloButton />
       </div>
       <div class="sn-card">
         <span class="sn-card-title">Model</span>

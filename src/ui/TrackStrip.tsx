@@ -10,21 +10,6 @@ export function TrackStrip() {
   const sel = selectedTrack.value;
   const solo = soloSelected.value;
   return (
-    <div class="strip-row">
-      <button
-        class="solo-btn"
-        aria-pressed={solo}
-        aria-label="Solo the selected track"
-        title="Solo: hear only the track you are editing"
-        onClick={() => (soloSelected.value = !solo)}
-      >
-        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
-          <path d="M3 11 V9 a6 6 0 0 1 12 0 V11" />
-          <rect x="2.5" y="10.5" width="3" height="5" rx="1.2" />
-          <rect x="12.5" y="10.5" width="3" height="5" rx="1.2" />
-        </svg>
-        <span>Solo</span>
-      </button>
     <div class="strip">
       {tracks.map((t, i) => {
         const ok = isPlayable(t);
@@ -53,7 +38,6 @@ export function TrackStrip() {
           </button>
         );
       })}
-    </div>
     </div>
   );
 }
