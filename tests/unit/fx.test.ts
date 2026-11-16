@@ -168,3 +168,37 @@ describe('sends and throws', () => {
     expect(detectClicks(r, SR)).toEqual([]);
   });
 });
+
+describe('recorded FX moves (lane)', () => {
+  it('a recorded gate replays at the same place every bar and stops with the transport', () => {
+    const cmds: EngineCommand[] = [{ type: 'tempo', bpm: BPM, swing: 50 }, ...sinePad(), START];
+    const lane: EngineCommand = {
+      type: 'fxLane',
+      length: 16,
+      moves: [
+        { at: 4, fx: 'gate', on: true, x: 0.5, y: 1, target: -1 },
+        { at: 8, fx: 'gate', on: false, x: 0.5, y: 1, target: -1 },
+      ],
+    };
+    const bar = 16 * STEP;
+    const r = render([lane, ...cmds], 4.5, { at: [{ time: 4.2, cmd: { type: 'transport', playing: false } }] }).left;
+    const env = (i: number) => rms(r, i - 24, i + 24);
+    const open = env(2 * STEP + 72);
+    for (const b of [0, 1]) {
+      // Gate closes half a step after step 4 in each bar, and is open again after step 8.
+      expect(env(b * bar + 4 * STEP + STEP * 0.75 + 72) / open, `bar ${b} closed`).toBeLessThan(0.05);
+      expect(env(b * bar + 9 * STEP + STEP * 0.75 + 72) / open, `bar ${b} open after off`).toBeGreaterThan(0.95);
+    }
+    expect(detectClicks(r, SR)).toEqual([]);
+  });
+
+  it('stopping while a lane effect is on releases it', () => {
+    const lane: EngineCommand = { type: 'fxLane', length: 16, moves: [{ at: 1, fx: 'lowSweep', on: true, x: 0, y: 0, target: -1 }] };
+    const pad = sinePad();
+    const r = render([lane, { type: 'tempo', bpm: BPM, swing: 50 }, ...pad, START], 1.5, { at: [{ time: 0.6, cmd: { type: 'transport', playing: false } }] }).left;
+    const dry = render([{ type: 'tempo', bpm: BPM, swing: 50 }, ...pad, START], 1.5, { at: [{ time: 0.6, cmd: { type: 'transport', playing: false } }] }).left;
+    // While on, the 1 kHz tone is filtered at ~150 Hz; after stop + ramp it is back to dry.
+    expect(rms(r, 0.45 * SR, 0.58 * SR)).toBeLessThan(0.2 * rms(dry, 0.45 * SR, 0.58 * SR));
+    expect(Math.abs(rms(r, 1.0 * SR, 1.4 * SR) - rms(dry, 1.0 * SR, 1.4 * SR))).toBeLessThan(0.01);
+  });
+});

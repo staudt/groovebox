@@ -31,6 +31,10 @@ const SAMPLER_VOICES = SAMPLER_POLY + 2;
 const EV_HIT = 0;
 const EV_ON = 1;
 const EV_OFF = 2;
+const EV_FX_ON = 3;
+const EV_FX_OFF = 4;
+const EV_FX_XY = 5;
+const LANE_MAX = 256;
 const QUEUE = 256;
 const METER_HZ = 30;
 /** Steps are scanned this far ahead so negative nudges (up to -0.5 step) can still fire on time. */
@@ -101,6 +105,7 @@ export class Engine {
   private qVel = new Float32Array(QUEUE);
   private qNote = new Int16Array(QUEUE);
   private qId = new Int32Array(QUEUE);
+  private qY = new Float32Array(QUEUE);
   private qSeq = new Uint8Array(QUEUE); // 1 = from the sequencer (dropped on stop), 0 = live / audition
   private qLen = 0;
   private noteIds = 0;
@@ -113,6 +118,17 @@ export class Engine {
   private capR: Float32Array | null = null;
   private capPos = 0;
   private capStart = 0;
+  // Recorded FX moves (lane) for the playing pattern.
+  private readonly laneAt = new Float64Array(LANE_MAX);
+  private readonly laneFx = new Int8Array(LANE_MAX);
+  private readonly laneType = new Uint8Array(LANE_MAX);
+  private readonly laneX = new Float32Array(LANE_MAX);
+  private readonly laneY = new Float32Array(LANE_MAX);
+  private readonly laneTarget = new Int8Array(LANE_MAX);
+  private laneLen = 0;
+  private laneSteps = 16;
+  /** Effects currently on because the lane pressed them (released on stop). */
+  private readonly laneHeld = new Uint8Array(FX_IDS.length);
 
   private masterGain = 0.9;
   // Send effects and punch-in FX.
@@ -178,6 +194,10 @@ export class Engine {
         } else if (!cmd.playing && this.playing) {
           this.playing = false;
           this.dropSequenced();
+          for (let k = 0; k < this.laneHeld.length; k++) {
+            if (this.laneHeld[k]) this.punch.press(k, false, this.frame);
+            this.laneHeld[k] = 0;
+          }
           // Sequenced FM notes lose their pending note-offs, so release them now (they ring out).
           for (let t = 0; t < MAX_TRACKS; t++) {
             const ts = this.tracks[t]!;
@@ -365,6 +385,25 @@ export class Engine {
         this.punch.press(k, cmd.on, snaps ? this.nextSixteenth() : this.frame);
         break;
       }
+      case 'fxLane': {
+        const n = Math.min(LANE_MAX, cmd.moves.length);
+        let w = 0;
+        for (let i = 0; i < n; i++) {
+          const m = cmd.moves[i]!;
+          const k = FX_IDS.indexOf(m.fx as (typeof FX_IDS)[number]);
+          if (k < 0) continue;
+          this.laneAt[w] = m.at;
+          this.laneFx[w] = k;
+          this.laneType[w] = m.on === true ? EV_FX_ON : m.on === false ? EV_FX_OFF : EV_FX_XY;
+          this.laneX[w] = m.x;
+          this.laneY[w] = m.y;
+          this.laneTarget[w] = m.target;
+          w++;
+        }
+        this.laneLen = w;
+        this.laneSteps = Math.max(1, Math.min(MAX_STEPS, cmd.length));
+        break;
+      }
       case 'fxXY': {
         const k = fxIndex(cmd.fx);
         if (k >= 0) this.punch.setXY(k, cmd.x, cmd.y);
@@ -393,9 +432,10 @@ export class Engine {
     ts.gain = this.targetGain(ts);
   }
 
-  private enqueue(frame: number, type: number, track: number, vel: number, note: number, id: number, seq: number): void {
+  private enqueue(frame: number, type: number, track: number, vel: number, note: number, id: number, seq: number, y = 0): void {
     if (this.qLen >= QUEUE) return; // drop rather than allocate
     const i = this.qLen++;
+    this.qY[i] = y;
     this.qFrame[i] = frame;
     this.qType[i] = type;
     this.qTrack[i] = track;
@@ -413,6 +453,7 @@ export class Engine {
     this.qVel[i] = this.qVel[last]!;
     this.qNote[i] = this.qNote[last]!;
     this.qId[i] = this.qId[last]!;
+    this.qY[i] = this.qY[last]!;
     this.qSeq[i] = this.qSeq[last]!;
   }
 
@@ -459,11 +500,11 @@ export class Engine {
     }
   }
 
-  /** First frame at or after the current one that falls on a straight 1/16 boundary. */
-  private nextSixteenth(): number {
-    const pos = this.posAt(this.frame);
+  /** First frame at or after `from` (default: now) that falls on a straight 1/16 boundary. */
+  private nextSixteenth(from = this.frame): number {
+    const pos = this.posAt(from);
     const next = Math.ceil(pos - 1e-9);
-    return Math.max(this.frame, Math.round(this.frameAt(next)));
+    return Math.max(from, Math.round(this.frameAt(next)));
   }
 
   /** Swing delays every odd 16th by (2 * swing - 1) steps: 50 % = straight, 75 % = dotted. */
@@ -509,6 +550,16 @@ export class Engine {
           const note = ts.notes[i * MAX_CHORD + k]!;
           this.enqueue(at, EV_ON, t, ts.vel[i]!, note, id, 1);
           this.enqueue(offAt, EV_OFF, t, 0, note, id, 1);
+        }
+      }
+      // Recorded FX moves that fall inside this step.
+      if (this.laneLen > 0) {
+        const lp = s % this.laneSteps;
+        for (let m = 0; m < this.laneLen; m++) {
+          const at = this.laneAt[m]!;
+          if (Math.floor(at) !== lp) continue;
+          const f = Math.max(blockStart, this.frameAt(s + (at - lp)));
+          this.enqueue(f, this.laneType[m]!, this.laneTarget[m]!, this.laneX[m]!, this.laneFx[m]!, 0, 1, this.laneY[m]!);
         }
       }
       this.nextStep++;
@@ -560,9 +611,13 @@ export class Engine {
   }
 
   private dispatch(i: number): void {
+    const type = this.qType[i]!;
+    if (type >= EV_FX_ON) {
+      this.dispatchFx(type, this.qNote[i]!, this.qTrack[i]!, this.qVel[i]!, this.qY[i]!, this.qFrame[i]!);
+      return;
+    }
     const ts = this.tracks[this.qTrack[i]!];
     if (!ts) return;
-    const type = this.qType[i]!;
     if (type === EV_HIT) {
       if (ts.kind === KIND_DRUM) this.trigger(ts, this.qVel[i]!);
       else if (ts.kind === KIND_SAMPLER) this.samplerNoteOn(ts, ts.sampler.root, this.qVel[i]!, ++this.noteIds); // audition
@@ -572,6 +627,27 @@ export class Engine {
     } else if (ts.kind === KIND_SAMPLER) {
       if (type === EV_ON) this.samplerNoteOn(ts, this.qNote[i]!, this.qVel[i]!, this.qId[i]!);
       else this.samplerNoteOff(ts, this.qNote[i]!, this.qId[i]!);
+    }
+  }
+
+  /** Replays one recorded FX move at absolute frame `f`. */
+  private dispatchFx(type: number, k: number, target: number, x: number, y: number, f: number): void {
+    const p = this.punch;
+    if (type === EV_FX_XY) {
+      p.setXY(k, x, y);
+      return;
+    }
+    if (type === EV_FX_ON) {
+      if (target !== p.target) {
+        p.releaseAll();
+        p.target = target;
+      }
+      p.setXY(k, x, y, true);
+      p.press(k, true, FX_DEFS[k]!.snaps ? this.nextSixteenth(Math.round(f)) : Math.round(f));
+      this.laneHeld[k] = 1;
+    } else {
+      p.press(k, false, Math.round(f));
+      this.laneHeld[k] = 0;
     }
   }
 

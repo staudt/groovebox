@@ -112,6 +112,7 @@ function postParams(t: Track, i: number): void {
 
 function syncAll(p: Project): void {
   post({ type: 'tempo', bpm: p.bpm, swing: p.swing });
+  post({ type: 'fxLane', moves: p.fxMoves?.[currentPattern.peek()] ?? [], length: 16 });
   p.tracks.forEach((t, i) => {
     post({ type: 'trackKind', track: i, kind: engineKind(t) });
     postParams(t, i);
@@ -133,6 +134,8 @@ function startSync(): void {
       syncAll(p);
     } else {
       if (p.bpm !== prev.bpm || p.swing !== prev.swing) post({ type: 'tempo', bpm: p.bpm, swing: p.swing });
+      const lane = p.fxMoves?.[pat];
+      if (lane !== prev.fxMoves?.[prevPat] || pat !== prevPat) post({ type: 'fxLane', moves: lane ?? [], length: 16 });
       p.tracks.forEach((t, i) => {
         const o = prev!.tracks[i]!;
         if (t === o && pat === prevPat) return;

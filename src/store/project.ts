@@ -1,7 +1,7 @@
 // Project store: single source of truth on the main thread.
 // Every mutation goes through `apply(cmd)`, which records its inverse for undo/redo.
 import { batch, computed, signal } from '@preact/signals';
-import type { DrumParams, FmOpKey, FmPatch, PatternId, PitchClass, Project, SamplerParams, ScaleName, Step, Track } from './types';
+import type { DrumParams, FmOpKey, FmPatch, FxMove, PatternId, PitchClass, Project, SamplerParams, ScaleName, Step, Track } from './types';
 import { BPM_MAX, BPM_MIN, SWING_MAX, SWING_MIN } from './types';
 import { defaultProject } from './defaults';
 
@@ -20,6 +20,8 @@ export type Command =
   | { type: 'setFmGlobal'; track: number; key: 'algorithm' | 'feedback'; value: number }
   /** Change some sampler settings (sample choice, trim, pitch, mode...). Values are clamped. */
   | { type: 'setSampler'; track: number; patch: Partial<Omit<SamplerParams, 'kind'>> }
+  /** Replace the recorded FX moves of one pattern slot (a whole recording pass, or Clear). */
+  | { type: 'setFxMoves'; pattern: PatternId; moves: FxMove[] }
   | { type: 'setKey'; key: PitchClass }
   | { type: 'setScale'; scale: ScaleName };
 
@@ -44,6 +46,8 @@ export const canRedo = signal(false);
 const UNDO_LIMIT = 200;
 
 const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+/** Engine capacity for recorded FX moves per pattern. */
+export const MAX_FX_MOVES = 256;
 
 /** Legal ranges for FM operator params (see FmOperator). */
 export const FM_OP_RANGE: Record<FmOpKey, [number, number]> = {
@@ -178,6 +182,11 @@ export function reduce(p: Project, cmd: Command): [Project, Command] {
       const inverse: Partial<Omit<SamplerParams, 'kind'>> = {};
       for (const k of Object.keys(cmd.patch) as (keyof Omit<SamplerParams, 'kind'>)[]) (inverse as Record<string, unknown>)[k] = prev[k];
       return [mapTrack(p, cmd.track, (t) => ({ ...t, params: next })), { ...cmd, patch: inverse }];
+    }
+    case 'setFxMoves': {
+      const prev = p.fxMoves?.[cmd.pattern] ?? [];
+      const moves = cmd.moves.slice(0, MAX_FX_MOVES).sort((a, b) => a.at - b.at);
+      return [{ ...p, fxMoves: { ...p.fxMoves, [cmd.pattern]: moves } }, { ...cmd, moves: prev }];
     }
     case 'setKey':
       return [{ ...p, key: (((Math.round(cmd.key) % 12) + 12) % 12) as PitchClass }, { type: 'setKey', key: p.key }];

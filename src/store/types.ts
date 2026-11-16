@@ -105,6 +105,13 @@ export type Section = {
 export type Scene = { id: string; name: string; mutes: Record<string, boolean> };
 export type MixerState = { master: number };
 
+/**
+ * One recorded punch-in FX move: at `at` (in 16th steps from the pattern start, fractional),
+ * press (`on: true`), release (`on: false`) or move (`on` omitted) effect `fx` with XY (0..1).
+ * target: -1 = master, else a track index.
+ */
+export type FxMove = { at: number; fx: string; on?: boolean; x: number; y: number; target: number };
+
 export type Project = {
   id: string;
   name: string;
@@ -116,6 +123,8 @@ export type Project = {
   sections: Section[];
   scenes: Scene[];
   mixer: MixerState;
+  /** Recorded FX moves per pattern slot ("Moves" in the FX sheet); replayed every loop. */
+  fxMoves?: Partial<Record<PatternId, FxMove[]>>;
   version: number;
 };
 

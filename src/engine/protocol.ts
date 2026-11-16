@@ -1,6 +1,6 @@
 // Messages between the main thread and the engine worklet. Structured-cloneable plain objects.
 // Commands flow main -> engine; events flow engine -> main at a throttled rate.
-import type { DrumParams, FmPatch, Pattern, SamplerParams } from '../store/types';
+import type { DrumParams, FmPatch, FxMove, Pattern, SamplerParams } from '../store/types';
 import type { FxId } from './fx/ids';
 
 export type EngineCommand =
@@ -34,6 +34,8 @@ export type EngineCommand =
    */
   | { type: 'fx'; fx: FxId; on: boolean; target: number; x?: number; y?: number }
   | { type: 'fxXY'; fx: FxId; x: number; y: number }
+  /** Recorded FX moves of the playing pattern; replayed every loop (lane length = `length` steps). */
+  | { type: 'fxLane'; moves: FxMove[]; length: number }
   /** Only this track is heard (-1 = no solo). Gains fade, so toggling never clicks. */
   | { type: 'solo'; track: number }
   /** Audition: play one hit now (finger drumming / preview). vel 0..127. */
