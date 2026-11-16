@@ -1,0 +1,106 @@
+{
+  "id": "virtuosity",
+  "name": "Virtuosity Studio",
+  "version": 1,
+  "file": "kit.mp3",
+  "sampleRate": 44100,
+  "sounds": {
+    "kick": {
+      "start": 0.08,
+      "duration": 0.75,
+      "gain": 0.85
+    },
+    "snare": {
+      "start": 0.91,
+      "duration": 0.75,
+      "gain": 1
+    },
+    "sidestick": {
+      "start": 1.74,
+      "duration": 0.6,
+      "gain": 0.7
+    },
+    "clap": {
+      "start": 2.42,
+      "duration": 0.3507,
+      "gain": 0.75
+    },
+    "hatClosed": {
+      "start": 2.8507,
+      "duration": 0.4,
+      "gain": 0.6
+    },
+    "hatPedal": {
+      "start": 3.3307,
+      "duration": 0.4,
+      "gain": 0.3
+    },
+    "hatOpen": {
+      "start": 3.8107,
+      "duration": 1,
+      "gain": 0.5
+    },
+    "ride": {
+      "start": 4.8907,
+      "duration": 1.8,
+      "gain": 0.6
+    },
+    "rideBell": {
+      "start": 6.7707,
+      "duration": 1.8,
+      "gain": 0.5
+    },
+    "crash": {
+      "start": 8.6507,
+      "duration": 2.2,
+      "gain": 0.55
+    },
+    "crash2": {
+      "start": 10.9307,
+      "duration": 2.2,
+      "gain": 0.55
+    },
+    "tomHigh": {
+      "start": 13.2107,
+      "duration": 1.1,
+      "gain": 0.6
+    },
+    "tomMid": {
+      "start": 14.3907,
+      "duration": 1.2,
+      "gain": 0.6
+    },
+    "tomFloor": {
+      "start": 15.6707,
+      "duration": 1.2,
+      "gain": 0.55
+    },
+    "tambourine": {
+      "start": 16.9507,
+      "duration": 0.6,
+      "gain": 0.4
+    },
+    "cowbell": {
+      "start": 17.6307,
+      "duration": 0.6,
+      "gain": 0.4
+    }
+  },
+  "credits": [
+    {
+      "name": "Virtuosity Drums",
+      "author": "Versilian Studios",
+      "license": "CC0-1.0",
+      "url": "https://github.com/sfzinstruments/virtuosity_drums",
+      "commit": "9f04cf9a734527edfbb0a4eee1f674e45bbf71bc"
+    },
+    {
+      "name": "Phazite Sounds",
+      "author": "august-byrne",
+      "license": "CC0-1.0",
+      "url": "https://github.com/august-byrne/phazite-sounds",
+      "commit": "bd71faf5035e8aa278ebfe3f4dc68804ae7bc5ca",
+      "note": "clap only"
+    }
+  ]
+}

@@ -31,7 +31,7 @@ export function serviceWorker(): Plugin {
     apply: 'build',
     generateBundle(_opts, bundle) {
       const files = ['./', ...Object.keys(bundle).filter((f) => !f.endsWith('.map') && !f.endsWith('.woff')).map((f) => `./${f}`)];
-      const publicFiles = ['./manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png'];
+      const publicFiles = ['./manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './kits/virtuosity/kit.json', './kits/virtuosity/kit.mp3'];
       const all = [...new Set([...files, ...publicFiles])].filter((f) => !f.includes('render') && !f.includes('bench'));
       const version = Date.now().toString(36);
       this.emitFile({ type: 'asset', fileName: 'sw.js', source: SW(version, all) });

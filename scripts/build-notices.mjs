@@ -33,6 +33,8 @@ const out = join(root, 'public', 'licenses');
 if (!existsSync(out)) mkdirSync(out, { recursive: true });
 writeFileSync(
   join(out, 'THIRD_PARTY_NOTICES.txt'),
-  `Groovebox — third-party software notices\n\nThe following open-source packages are bundled into this web app (code and fonts).\nSample credits, when bundled, are in ASSET_LICENSES.md.\n\n${blocks.join('\n')}`,
+  `Groovebox — third-party software notices\n\nThe following open-source packages are bundled into this web app (code and fonts).\nBundled drum sample credits are in ASSET_LICENSES.md (all CC0 1.0).\n\n${blocks.join('\n')}`,
 );
+// Sample credits travel with the site too.
+writeFileSync(join(out, 'ASSET_LICENSES.md'), readFileSync(join(root, 'ASSET_LICENSES.md'), 'utf8'));
 console.log(`Wrote notices for ${blocks.length} packages: ${[...pkgs.keys()].join(', ')}`);
