@@ -15,7 +15,7 @@
 - CPU (`pnpm bench`): worst case (4 drum tracks on every 16th at 200 BPM) is 1.8 % of one desktop core.
 
 **Needs a human**
-- Sound and feel: `pnpm render:demo` writes WAVs to `renders/`; on the phone, `pnpm dev:lan` and open the Network URL it prints.
+- Sound and feel: `pnpm render:demo` writes WAVs to `renders/`; on the phone, `pnpm dev:lan` and open https://<pc-ip>:5180 (the firewall must allow 5180 from the LAN: `sudo ufw allow from 10.0.0.0/24 to any port 5180 proto tcp`).
 - Steady timing and no clicks on a real mid-range Android phone, touch feel of long-press and knobs.
 
 **Notes / decisions**

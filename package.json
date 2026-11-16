@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:lan": "vite --mode lan --host",
+    "dev:lan": "vite --mode lan --host --port 5180 --strictPort",
     "build": "node scripts/build-notices.mjs && tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
