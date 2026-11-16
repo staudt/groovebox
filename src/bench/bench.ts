@@ -40,6 +40,17 @@ const SCENARIOS: Scenario[] = [
   { name: 'Drums: 4 tracks on every 16th at 200 BPM', setup: (e) => { loadProject(e); for (const t of [3, 4, 5]) e.command({ type: 'trackKind', track: t, kind: 'off' }); allDrums16ths(e); } },
   { name: '8 FM voices, all 6 operators (E. piano chords)', setup: (e) => { loadProject(e); for (const t of [0, 1, 2, 6]) e.command({ type: 'trackKind', track: t, kind: 'off' }); eightFmVoices(e); } },
   { name: 'Worst case: both of the above together', setup: (e) => { loadProject(e); allDrums16ths(e); eightFmVoices(e); } },
+  {
+    name: 'Spec budget: worst case + reverb/delay sends + 2 FX (stutter, low sweep)',
+    setup: (e) => {
+      loadProject(e);
+      allDrums16ths(e);
+      eightFmVoices(e);
+      for (let t = 0; t < 8; t++) e.command({ type: 'sends', track: t, a: 0.4, b: 0.2 });
+      e.command({ type: 'fx', fx: 'stutter8', on: true, target: -1 });
+      e.command({ type: 'fx', fx: 'lowSweep', on: true, target: -1 });
+    },
+  },
 ];
 
 function measure(s: Scenario, seconds: number): number {
