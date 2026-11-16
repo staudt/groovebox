@@ -90,6 +90,14 @@ test.describe('vertical swipes scroll from anywhere draggable', () => {
     expect(await swipeScrolls(page, page.getByRole('button', { name: 'Step 6', exact: true }))).toBe(true);
   });
 
+  test('Sound screen (sampler): starting on the waveform, away from the trim handles', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 460 }); // the one-shot sampler panel fits at 600 px
+    await openSound(page, 'PERC');
+    const wave = page.getByTestId('waveform-canvas');
+    await expect(wave).toBeVisible();
+    expect(await swipeScrolls(page, wave)).toBe(true);
+  });
+
   test('Play screen: starting on a knob label', async ({ page }) => {
     await page.goto('/');
     await page.locator('.strip').getByRole('button', { name: /^BASS/ }).click();

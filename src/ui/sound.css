@@ -54,3 +54,25 @@
 .sn-slider label { width: 56px; font-size: 13px; color: var(--text-2); }
 .sn-slider output { width: 44px; text-align: right; font-family: var(--font-mono); font-size: 13px; }
 .sn-kb-slot { margin-top: auto; }
+
+/* Sampler panel */
+.wf { position: relative; height: 96px; border-radius: 10px; background: var(--ground); border: 1px solid var(--border); touch-action: pan-y; overflow: visible; }
+.wf canvas { display: block; border-radius: 10px; touch-action: pan-y; }
+.wf-handle { position: absolute; top: -4px; bottom: -4px; width: 44px; margin-left: -22px; touch-action: none; cursor: ew-resize; display: flex; justify-content: center; z-index: 1; }
+.wf-handle i { width: 3px; height: 100%; background: var(--accent); border-radius: 2px; position: relative; }
+.wf-handle i::after { content: ''; position: absolute; top: 50%; width: 14px; height: 24px; margin-top: -12px; left: 50%; margin-left: -7px; border-radius: 6px; background: var(--accent); }
+.wf-handle:focus-visible { outline: none; }
+.wf-handle:focus-visible i { background: var(--text); }
+.sn-empty { align-items: center; text-align: center; padding: 20px 12px; }
+.sn-empty p { margin: 0; font-size: 13px; color: var(--text-2); }
+.sn-tabs { display: flex; gap: 6px; }
+.sn-tabs .sn-chip { font-size: 12px; padding: 0 4px; }
+.sn-meter { height: 10px; border-radius: 5px; background: var(--raised); overflow: hidden; }
+.sn-meter div { height: 100%; width: 100%; background: var(--accent); transform-origin: left; transform: scaleX(0); }
+.sn-err { color: #FF6B5E; font-size: 13px; margin: 0; }
+.sn-msg { color: var(--text-2); font-size: 12px; font-family: var(--font-mono); margin: 0; }
+.sn-row-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.sn-row-actions .btn { flex: 1 1 0; }
+.sn-file { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; }
+.sn-file:focus + span, .sn-importlbl:focus-within { outline: 2px solid var(--accent); }
+.sn-importlbl { display: inline-flex; align-items: center; justify-content: center; position: relative; cursor: pointer; }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { signal } from '@preact/signals';
 import { apply, selectedTrack, track } from '../store/project';
-import type { DrumParams, FmOpKey, FmPatch } from '../store/types';
+import type { DrumParams, FmOpKey, FmPatch, SamplerParams } from '../store/types';
 import { FM_PRESETS, randomPatch } from '../store/fmPresets';
 import { deletePatch, listPatches, savePatch } from '../store/persist';
 import { ALGORITHMS, operatorRole } from '../engine/fm/algorithms';
@@ -12,6 +12,7 @@ import { DragValue } from '../ui/DragValue';
 import { EnvelopeEditor, type EnvChange } from '../ui/EnvelopeEditor';
 import { KeyboardDrawer } from '../ui/KeyboardDrawer';
 import { SoloButton } from '../ui/SoloButton';
+import { SamplerSound } from './SamplerSound';
 import '../ui/sound.css';
 
 const selOp = signal(0);
@@ -240,7 +241,7 @@ export function Sound() {
     <>
       {tr.kind === 'fm' && <FmSound patch={tr.params as FmPatch} />}
       {tr.kind === 'drum' && <DrumSound p={tr.params as DrumParams} />}
-      {tr.kind === 'sampler' && <div class="sn-sub">Sampler arrives in a later phase.</div>}
+      {tr.kind === 'sampler' && <SamplerSound p={tr.params as SamplerParams} />}
     </>
   );
 }
