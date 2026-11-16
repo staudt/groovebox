@@ -3,12 +3,19 @@ import { apply, currentPattern, selectedTrack, track } from '../store/project';
 import type { Step } from '../store/types';
 import { audibleStep, audition } from '../engine/host';
 import { Sheet } from './Sheet';
+import { isMelodic } from '../store/defaults';
+import { MelodicGrid } from './MelodicGrid';
 
 const LONG_PRESS_MS = 400;
 const MOVE_CANCEL_PX = 8;
 const COLS = 4;
 
+/** Drum tracks get the hit grid, melodic tracks the note/hold/chord grid. */
 export function StepGrid() {
+  return isMelodic(track.value) ? <MelodicGrid /> : <DrumGrid />;
+}
+
+function DrumGrid() {
   const t = track.value;
   const pat = t.patterns[currentPattern.value];
   const ti = selectedTrack.value;

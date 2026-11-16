@@ -1,6 +1,7 @@
 import { project, selectedTrack } from '../store/project';
-import { isPlayable } from '../store/defaults';
-import { audition } from '../engine/host';
+import { isMelodic, isPlayable } from '../store/defaults';
+import { audition, previewNotes } from '../engine/host';
+import { defaultNote } from './keysState';
 
 const KIND_LABEL = { drum: 'drum', fm: 'FM', sampler: 'sample' } as const;
 
@@ -20,7 +21,7 @@ export function TrackStrip() {
             title={ok ? undefined : 'Coming in a later phase'}
             onClick={() => {
               if (!ok) return;
-              if (on) void audition(i, 100);
+              if (on) { if (isMelodic(t)) void previewNotes(i, [defaultNote(i)], 100); else void audition(i, 100); }
               else selectedTrack.value = i;
             }}
             style={{

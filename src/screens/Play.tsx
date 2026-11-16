@@ -6,6 +6,8 @@ import { StepGrid } from '../ui/StepGrid';
 import { Macros } from '../ui/Macros';
 import { AskBar } from '../ui/AskBar';
 import { Sheet, Stepper } from '../ui/Sheet';
+import { KeyboardDrawer } from '../ui/KeyboardDrawer';
+import { isMelodic } from '../store/defaults';
 
 function EuclidSheet(props: { onClose: () => void }) {
   const [hits, setHits] = useState(4);
@@ -44,6 +46,7 @@ export function Play() {
       <StepGrid />
       <Macros />
       <AskBar />
+      {isMelodic(track.value) && <KeyboardDrawer initialLayout="scale" trackIndex={selectedTrack.value} />}
       {euclidOpen && <EuclidSheet onClose={() => setEuclidOpen(false)} />}
     </>
   );
