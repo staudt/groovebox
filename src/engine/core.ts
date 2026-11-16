@@ -90,6 +90,7 @@ export class Engine {
   private noteIds = 0;
 
   private masterGain = 0.9;
+  private soloTrack = -1;
   private masterPeak = 0;
   private meterFrames = 0;
   private readonly meterEvery: number;
@@ -252,6 +253,10 @@ export class Engine {
         }
         break;
       }
+      case 'solo':
+        this.soloTrack = cmd.track;
+        for (let t = 0; t < MAX_TRACKS; t++) this.snapGainIfSilent(this.tracks[t]!);
+        break;
       case 'trigger':
         this.enqueue(this.frame, EV_HIT, cmd.track, cmd.vel, 0, 0, 0);
         break;
@@ -259,7 +264,8 @@ export class Engine {
   }
 
   private targetGain(ts: TrackState): number {
-    return ts.kind !== KIND_OFF && !ts.mute ? ts.level * ts.level : 0;
+    const soloed = this.soloTrack >= 0 && this.tracks[this.soloTrack] !== ts;
+    return ts.kind !== KIND_OFF && !ts.mute && !soloed ? ts.level * ts.level : 0;
   }
 
   /** Gain smoothing only matters while sound is playing; a silent track jumps straight to its target. */

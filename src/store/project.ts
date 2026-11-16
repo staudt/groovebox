@@ -27,6 +27,11 @@ export const currentPattern = signal<PatternId>('A');
 export const playing = signal(false);
 
 export const track = computed<Track>(() => project.value.tracks[selectedTrack.value]!);
+/**
+ * Monitoring solo: when on, only the selected track is heard, following the selection.
+ * A listening aid (not saved, not undoable); per-track mute/solo in the mixer is separate.
+ */
+export const soloSelected = signal(false);
 /** Step index (in the current pattern of the selected track) that keyboard input writes to; -1 = none. */
 export const selectedStep = signal(-1);
 

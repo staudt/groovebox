@@ -3,7 +3,7 @@
 import { effect } from '@preact/signals';
 import workletUrl from './worklet.ts?worker&url';
 import type { EngineCommand, EngineEvent } from './protocol';
-import { currentPattern, playing, project } from '../store/project';
+import { currentPattern, playing, project, selectedTrack, soloSelected } from '../store/project';
 import type { DrumParams, FmPatch, Project, Track } from '../store/types';
 import { ensureRunning, getAudioContext } from '../platform/audio';
 
@@ -106,6 +106,7 @@ function startSync(): void {
     prev = p;
     prevPat = pat;
   });
+  effect(() => post({ type: 'solo', track: soloSelected.value ? selectedTrack.value : -1 }));
   effect(() => {
     const on = playing.value;
     if (!on) clearSteps(); // the playhead disappears immediately, not after the engine's stop event

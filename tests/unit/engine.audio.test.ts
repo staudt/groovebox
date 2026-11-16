@@ -67,4 +67,26 @@ describe('engine audio quality', () => {
       expect(err * 1000).toBeLessThan(1);
     }
   });
+
+  it('solo isolates one track, fades in and out without clicks, and can move to another track', () => {
+    const cmds: EngineCommand[] = [
+      { type: 'tempo', bpm: 120, swing: 50 },
+      ...drumTrack(0, 'kick', 'x . . . x . . . x . . . x . . .', { decay: 1 }),
+      ...drumTrack(2, 'hat', 'x x x x x x x x x x x x x x x x', { decay: 0 }),
+      START,
+    ];
+    const solo = (track: number, time: number) => ({ time, cmd: { type: 'solo', track } as EngineCommand });
+    const sr = 48000;
+    const all = render(cmds, 4).left;
+    const r = render(cmds, 4, { at: [solo(2, 1.03), solo(0, 2.07), solo(-1, 3.01)] }).left;
+    const hatOnly = render([...cmds.filter((c) => !('track' in c) || c.track !== 0)], 4).left;
+    const kickOnly = render([...cmds.filter((c) => !('track' in c) || c.track !== 2)], 4).left;
+    const seg = (b: Float32Array, a: number, z: number) => b.subarray(Math.round(a * sr), Math.round(z * sr));
+    const maxDiff = (x: Float32Array, y: Float32Array) => x.reduce((m, v, i) => Math.max(m, Math.abs(v - y[i]!)), 0);
+    // After the 10 ms fade, each soloed stretch equals that track rendered alone.
+    expect(maxDiff(seg(r, 1.2, 2.0), seg(hatOnly, 1.2, 2.0))).toBeLessThan(1e-3);
+    expect(maxDiff(seg(r, 2.3, 3.0), seg(kickOnly, 2.3, 3.0))).toBeLessThan(1e-3);
+    expect(maxDiff(seg(r, 3.6, 4.0), seg(all, 3.6, 4.0))).toBeLessThan(1e-3);
+    expect(detectClicks(r, sr)).toEqual([]);
+  });
 });

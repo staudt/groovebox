@@ -17,6 +17,8 @@ export type EngineCommand =
   /** Release every live (keyboard) note on a track, e.g. when Hold is switched off. */
   | { type: 'allNotesOff'; track: number }
   | { type: 'mute'; track: number; mute: boolean }
+  /** Only this track is heard (-1 = no solo). Gains fade, so toggling never clicks. */
+  | { type: 'solo'; track: number }
   /** Audition: play one hit now (finger drumming / preview). vel 0..127. */
   | { type: 'trigger'; track: number; vel: number };
 
