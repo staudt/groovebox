@@ -1,7 +1,20 @@
 import type { ComponentChildren } from 'preact';
+import { useEffect, useRef } from 'preact/hooks';
 
-/** Bottom sheet with a dimmed backdrop; tapping the backdrop closes it. */
+/** Bottom sheet with a dimmed backdrop; tapping the backdrop or pressing Escape closes it. */
 export function Sheet(props: { title: string; onClose: () => void; children: ComponentChildren }) {
+  const close = useRef(props.onClose);
+  close.current = props.onClose;
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        close.current();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   return (
     <div class="sheet-back" onPointerDown={(e) => { if (e.target === e.currentTarget) props.onClose(); }}>
       <div class="sheet" role="dialog" aria-label={props.title}>
