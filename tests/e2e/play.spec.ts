@@ -37,7 +37,7 @@ test('loads cleanly with 8 tracks, KICK selected', async ({ page }) => {
     await expect(page.getByRole('button', { name: new RegExp(`^${n}`) })).toHaveAttribute('aria-disabled', 'false');
   }
   await expect(page.getByRole('button', { name: /^KICK/ })).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.getByText('KICK · 16 steps')).toBeVisible();
+  await expect(page.getByTestId('track-title')).toHaveText(/^KICK/);
   await page.waitForTimeout(300);
   expect(errors).toEqual([]);
 });
@@ -58,7 +58,7 @@ test('tap toggles a step; Ctrl+Z restores', async ({ page, isMobile }) => {
 
 test('selecting SNARE shows the snare pattern', async ({ page }) => {
   await page.getByRole('button', { name: /^SNARE/ }).click();
-  await expect(page.getByText('SNARE · 16 steps')).toBeVisible();
+  await expect(page.getByTestId('track-title')).toHaveText(/^SNARE/);
   await expect.poll(() => hitSteps(page)).toEqual([5, 13, 16]);
   const full = await velBar(page, 5).evaluate((e) => parseFloat((e as HTMLElement).style.width));
   const soft = await velBar(page, 16).evaluate((e) => parseFloat((e as HTMLElement).style.width));
@@ -175,7 +175,7 @@ test('Rhythm opens without changing anything and replaces the macros', async ({ 
 
 test('Rhythm: 5 hits on HATS start at step 1', async ({ page }) => {
   await page.getByRole('button', { name: /^HATS/ }).click();
-  await expect(page.getByText('HATS · 16 steps')).toBeVisible();
+  await expect(page.getByTestId('track-title')).toHaveText(/^HATS/);
   await rhythmBtn(page).click();
   await setSlider(page, 'Hits', 5);
   await expect.poll(() => hitCount(page)).toBe(5);
@@ -184,7 +184,7 @@ test('Rhythm: 5 hits on HATS start at step 1', async ({ page }) => {
 
 test('Rhythm on BASS keeps the bass notes', async ({ page }) => {
   await page.locator('.strip').getByRole('button', { name: /^BASS/ }).click();
-  await expect(page.getByText('BASS · 16 steps')).toBeVisible();
+  await expect(page.getByTestId('track-title')).toHaveText(/^BASS/);
   await rhythmBtn(page).click();
   await setSlider(page, 'Hits', 8);
   await expect.poll(async () => (await stepLabels(page)).filter((l) => /[A-G]/.test(l)).length).toBe(8);

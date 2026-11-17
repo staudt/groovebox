@@ -5,6 +5,7 @@ import { BottomNav } from '../ui/BottomNav';
 import { Play } from '../screens/Play';
 import { Sound } from '../screens/Sound';
 import { Perform } from '../screens/Perform';
+import { Song } from '../screens/Song';
 import { FxSheet } from '../screens/FxSheet';
 import { fxSheetOpen, screen } from './nav';
 import { ResetToast } from '../ui/ProjectSheet';
@@ -31,10 +32,10 @@ function PhoneApp() {
     <div class="app noselect">
       <div class="app-top">
         <Transport />
-        <TrackStrip />
+        {screen.value !== 'song' && <TrackStrip />}
       </div>
       <main class="app-main">
-        {screen.value === 'sound' ? <Sound /> : screen.value === 'perform' ? <Perform /> : <Play />}
+        {screen.value === 'sound' ? <Sound /> : screen.value === 'perform' ? <Perform /> : screen.value === 'song' ? <Song /> : <Play />}
       </main>
       <ResetToast />
       <BottomNav />

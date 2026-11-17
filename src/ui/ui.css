@@ -46,3 +46,21 @@ input[type='range'] { width: 100%; accent-color: var(--accent); height: 44px; ma
   padding: 8px 8px 8px 16px; border-radius: 12px; background: var(--raised); border: 1px solid var(--border);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45); font-size: 14px;
 }
+
+/* Pattern chips A-D (Play header). Amber = current; a queued switch pulses until the bar. */
+.pchips { display: flex; gap: 3px; flex: 0 0 auto; }
+.pchip {
+  position: relative; width: 30px; height: 44px; border-radius: 8px; border: 1px solid var(--border);
+  background: var(--raised); color: var(--text-2); font-family: var(--font-mono); font-size: 13px; font-weight: 700;
+}
+.pchip[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--ground); }
+.pchip[data-has]::after { content: ''; position: absolute; top: 5px; right: 5px; width: 4px; height: 4px; border-radius: 50%; background: currentColor; opacity: 0.55; }
+.pchip[data-heard]::before { content: ''; position: absolute; left: 6px; right: 6px; bottom: 4px; height: 2px; border-radius: 1px; background: currentColor; }
+.pchip[data-queued] { animation: pchip-pulse 0.6s ease-in-out infinite alternate; }
+@keyframes pchip-pulse { from { box-shadow: 0 0 0 0 var(--text); } to { box-shadow: 0 0 0 3px var(--text); } }
+@media (min-width: 1024px) { .pchip { width: 36px; height: 36px; } }
+@media (max-width: 420px) { .cap-label { display: none; } }
+
+@media (max-width: 419px) {
+  .track-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+}

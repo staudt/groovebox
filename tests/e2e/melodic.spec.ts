@@ -36,7 +36,7 @@ test.afterEach(() => { expect(errors).toEqual([]); });
 
 test('BASS shows the default bass line with a hold after G1', async ({ page }) => {
   await select(page, 'BASS');
-  await expect(page.getByText('BASS · 16 steps')).toBeVisible();
+  await expect(page.getByTestId('track-title')).toHaveText(/^BASS/);
   await expect(step(page, 1)).toContainText('C2');
   await expect(step(page, 6)).toContainText('Eb2');
   await expect(step(page, 9)).toContainText('Ab1');
@@ -178,7 +178,7 @@ test('desktop: musical typing', async ({ page, isMobile }) => {
   await page.keyboard.press('Backquote');
   await expect(page.getByRole('button', { name: 'Hold', exact: true })).toHaveAttribute('aria-pressed', 'false');
   await page.keyboard.press('Tab');
-  await expect(page.getByText('PAD · 16 steps')).toBeVisible();
+  await expect(page.getByTestId('track-title')).toHaveText(/^PAD/);
 });
 
 test('hold latches keys', async ({ page }) => {

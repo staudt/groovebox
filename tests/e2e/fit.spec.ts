@@ -12,12 +12,20 @@ const SIZES: [number, number][] = [
   [412, 915],
 ];
 
-type Case = { name: string; track: string; screen: 'Play' | 'Sound' | 'Perform'; setup?: (page: Page) => Promise<void> };
+type Case = { name: string; track: string; screen: 'Play' | 'Sound' | 'Perform' | 'Song'; setup?: (page: Page) => Promise<void> };
 
 const openKeys = async (page: Page) => {
   // Make sure the keyboard drawer is expanded (it is the part that used to get cut off).
   const toggle = page.getByRole('button', { name: /^Keys/ });
   if ((await toggle.count()) && (await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click();
+};
+
+const songWith = (mix: boolean) => async (page: Page) => {
+  await page.getByRole('button', { name: 'Create a song from the current loop' }).click();
+  for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Add section' }).click();
+  await page.getByRole('button', { name: 'Add scene' }).click();
+  await page.getByRole('button', { name: 'Add scene' }).click();
+  if (mix) await page.getByRole('button', { name: 'Mix view' }).click();
 };
 
 const CASES: Case[] = [
@@ -29,10 +37,12 @@ const CASES: Case[] = [
   { name: 'Sound FM with keyboard', track: 'BASS', screen: 'Sound', setup: openKeys },
   { name: 'Sound drum', track: 'KICK', screen: 'Sound' },
   { name: 'Sound sampler', track: 'PERC', screen: 'Sound' },
+  { name: 'Song arrangement', track: '', screen: 'Song', setup: songWith(false) },
+  { name: 'Song mix', track: '', screen: 'Song', setup: songWith(true) },
 ];
 
 async function go(page: Page, c: Case): Promise<void> {
-  await page.locator('.strip').getByRole('button', { name: new RegExp(`^${c.track}`) }).click();
+  if (c.track) await page.locator('.strip').getByRole('button', { name: new RegExp(`^${c.track}`) }).click();
   await page.locator('nav').getByRole('button', { name: new RegExp(`^${c.screen}$`) }).click();
   if (c.setup) await c.setup(page);
   await page.waitForTimeout(100);
@@ -69,6 +79,8 @@ for (const [w, h] of SIZES) {
         // Touch targets stay usable after shrinking.
         expect(await minHeight(page, '.step, [aria-label^="Step "]'), 'steps').toBeGreaterThanOrEqual(c.screen === 'Play' ? 40 : 0);
         expect(await minHeight(page, '.kbd-pad, .kbd-white'), 'keys').toBeGreaterThanOrEqual(44);
+        expect(await minHeight(page, '.sg-cell'), 'lane cells').toBeGreaterThanOrEqual(c.screen === 'Song' ? 14 : 0);
+        expect(await minHeight(page, '.mx-ms button, .mx-fader'), 'mixer controls').toBeGreaterThanOrEqual(c.screen === 'Song' ? 36 : 0);
         expect(await minHeight(page, '.perf-pads button'), 'pads').toBeGreaterThanOrEqual(c.screen === 'Perform' ? 44 : 0);
       });
     }

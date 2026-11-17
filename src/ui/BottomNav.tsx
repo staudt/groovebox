@@ -23,7 +23,7 @@ export function BottomNav() {
         <span style={{ width: '54px', height: '42px', borderRadius: '14px', background: 'var(--fx)', color: 'var(--ground)', fontWeight: 700, fontSize: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: fxSheetOpen.value ? '0 0 0 3px var(--bar), 0 0 0 5px var(--fx)' : 'none' }}>FX</span>
       </button>
       <Item label="Perform" target="perform"><rect x="2" y="2" width="16" height="16" rx="2" /><circle cx="12" cy="8" r="2.5" /></Item>
-      <Item label="Song"><path d="M2 5 h6 M10 5 h8 M2 10 h10 M14 10 h4 M2 15 h4 M8 15 h10" /></Item>
+      <Item label="Song" target="song"><path d="M2 5 h6 M10 5 h8 M2 10 h10 M14 10 h4 M2 15 h4 M8 15 h10" /></Item>
     </nav>
   );
 }

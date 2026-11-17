@@ -13,6 +13,8 @@ import { ResetToast } from '../ui/ProjectSheet';
 import { Play } from '../screens/Play';
 import { Sound } from '../screens/Sound';
 import { Perform } from '../screens/Perform';
+import { Song } from '../screens/Song';
+import { SectionChain } from '../ui/SectionChain';
 import { FxSheet } from '../screens/FxSheet';
 import { fxSheetOpen, screen, type ScreenId } from './nav';
 import '../ui/desktop.css';
@@ -40,32 +42,23 @@ function TopBar() {
         <NavButton label="Play" target="play" />
         <NavButton label="Sound" target="sound" />
         <NavButton label="Perform" target="perform" />
-        <NavButton label="Song" />
+        <NavButton label="Song" target="song" />
         <button class="dsk-fx" aria-label="FX" aria-pressed={fxSheetOpen.value} onClick={() => { fxSheetOpen.value = !fxSheetOpen.value; }}>FX</button>
       </nav>
     </header>
   );
 }
 
-/** Read-only chain of the project's sections (song building is owned by the Song screen). */
-function SectionChain() {
-  const sections = project.value.sections;
-  if (sections.length === 0) {
+/** Live chain of the project's sections: playing progress, tap to select (editing is on the Song screen). */
+function DesktopChain() {
+  if (project.value.sections.length === 0) {
     return (
       <div class="dsk-chain" aria-label="Section chain">
         <div class="dsk-sec" data-active=""><b>Loop · pattern {currentPattern.value}</b></div>
       </div>
     );
   }
-  return (
-    <div class="dsk-chain" aria-label="Section chain">
-      {sections.map((s) => (
-        <div key={s.id} class="dsk-sec" style={{ flexGrow: s.bars <= 1 ? 0.5 : 1 }}>
-          <b>{s.name}</b><span>{s.bars} bars</span>
-        </div>
-      ))}
-    </div>
-  );
+  return <SectionChain variant="desktop" />;
 }
 
 function Matrix() {
@@ -193,12 +186,12 @@ export function DesktopApp() {
       <TopBar />
       <div class="dsk-body">
         <main class="dsk-main">
-          <SectionChain />
-          <Matrix />
-          <section class="dsk-detail" aria-label={screenId === 'perform' ? 'Perform' : 'Editor'}>
-            {screenId === 'perform' ? <Perform /> : <Play desktop />}
+          <DesktopChain />
+          {screenId !== 'song' && <Matrix />}
+          <section class="dsk-detail" aria-label={screenId === 'perform' ? 'Perform' : screenId === 'song' ? 'Song' : 'Editor'}>
+            {screenId === 'perform' ? <Perform /> : screenId === 'song' ? <Song desktop /> : <Play desktop />}
           </section>
-          <KeysPanel />
+          {screenId !== 'song' && <KeysPanel />}
         </main>
         <aside class="dsk-aside">
           <div class="dsk-sound" aria-label="Sound panel"><Sound embedded /></div>
