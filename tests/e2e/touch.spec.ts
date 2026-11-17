@@ -142,7 +142,7 @@ test.describe('drags still work with touch', () => {
 
   test('knob turns with a vertical drag on the dial', async ({ page }) => {
     await page.goto('/');
-    const tone = page.getByRole('slider', { name: 'Tone' });
+    const tone = page.getByRole('slider', { name: 'Tone', exact: true });
     const v0 = Number(await tone.getAttribute('aria-valuenow'));
     const [x, y] = await centerOf(tone.locator('svg'));
     await touchDrag(page, x, y, x, y - 40);

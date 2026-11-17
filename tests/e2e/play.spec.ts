@@ -114,7 +114,7 @@ test('play shows a moving playhead; stop clears it; Space toggles (desktop)', as
 });
 
 test('macro drag changes Tone', async ({ page }) => {
-  const tone = page.getByRole('slider', { name: 'Tone' });
+  const tone = page.getByRole('slider', { name: 'Tone', exact: true });
   await expect(tone).toHaveAttribute('aria-valuenow', '50');
   const box = (await tone.boundingBox())!;
   const x = box.x + box.width / 2, y = box.y + 20;
@@ -161,16 +161,16 @@ const stepLabels = (page: Page) =>
 
 test('Rhythm opens without changing anything and replaces the macros', async ({ page }) => {
   const before = await stepLabels(page);
-  await expect(page.getByRole('slider', { name: 'Tone' })).toBeVisible();
+  await expect(page.getByRole('slider', { name: 'Tone', exact: true })).toBeVisible();
   await rhythmBtn(page).click();
   await expect(rhythmBtn(page)).toHaveAttribute('aria-pressed', 'true');
   await expect(panel(page)).toBeVisible();
-  await expect(page.getByRole('slider', { name: 'Tone' })).toHaveCount(0);
+  await expect(page.getByRole('slider', { name: 'Tone', exact: true })).toHaveCount(0);
   expect(await stepLabels(page)).toEqual(before);
   await expect(panel(page).getByRole('slider', { name: 'Hits' })).toHaveValue('3');
   await rhythmBtn(page).click();
   await expect(panel(page)).toHaveCount(0);
-  await expect(page.getByRole('slider', { name: 'Tone' })).toBeVisible();
+  await expect(page.getByRole('slider', { name: 'Tone', exact: true })).toBeVisible();
 });
 
 test('Rhythm: 5 hits on HATS start at step 1', async ({ page }) => {

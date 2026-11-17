@@ -17,6 +17,11 @@ const WHITE_PCS = [0, 2, 4, 5, 7, 9, 11];
 const BLACK_PCS = [1, 3, 6, 8, 10];
 // Black key i sits between white keys BLACK_AFTER[i] and the next one.
 const BLACK_AFTER = [0, 1, 3, 4, 5];
+// Desktop variant: eight white keys C..C (K plays the next C), labeled with the computer key that plays them.
+const DESK_WHITE_PCS = [0, 2, 4, 5, 7, 9, 11, 12];
+/** Computer key letter by semitone above the octave's C (A = 0, W = 1, S = 2, ...). */
+const LETTER: Record<number, string> = {};
+for (const [code, semi] of [...Object.entries(WHITE_KEYS), ...Object.entries(BLACK_KEYS)]) LETTER[semi] = code.slice(3);
 
 function typingTarget(t: EventTarget | null): boolean {
   const el = t as HTMLElement | null;
@@ -27,8 +32,8 @@ function typingTarget(t: EventTarget | null): boolean {
  * Keyboard drawer for melodic tracks (phone layout of the mockup). Self-contained: mount it anywhere.
  * Also owns desktop musical typing, active only while mounted.
  */
-export function KeyboardDrawer(props: { initialLayout: Layout; trackIndex: number }) {
-  const { trackIndex } = props;
+export function KeyboardDrawer(props: { initialLayout: Layout; trackIndex: number; desktop?: boolean }) {
+  const { trackIndex, desktop } = props;
   const [layout, setLayout] = useState<Layout>(props.initialLayout);
   const [open, setOpen] = useState(true);
   const [hold, setHold] = useState(false);
@@ -142,7 +147,7 @@ export function KeyboardDrawer(props: { initialLayout: Layout; trackIndex: numbe
   const pads = scaleNotes(root, scale, degrees + 1);
 
   return (
-    <div class="kbd noselect" aria-label="Keyboard">
+    <div class={`kbd noselect${desktop ? ' dsk-kbd' : ''}`} aria-label="Keyboard">
       <div class="kbd-head">
         <button class="kbd-btn kbd-keys" aria-expanded={open} onClick={() => setOpen(!open)}>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-hidden="true">
@@ -160,11 +165,39 @@ export function KeyboardDrawer(props: { initialLayout: Layout; trackIndex: numbe
         <div class="kbd-pads" style={{ gridTemplateColumns: `repeat(${pads.length}, minmax(0, 1fr))` }}>
           {pads.map((n, i) => (
             <button key={i} class={`kbd-pad${i === 0 || i === pads.length - 1 ? ' root' : ''}`} aria-label={`Key ${midiToNote(n)}`}
-              {...(lit.has(n) ? { 'data-lit': '' } : {})} {...pointer(n)}>{pcName(n)}</button>
+              {...(lit.has(n) ? { 'data-lit': '' } : {})} {...pointer(n)}>
+              {pcName(n)}
+              {desktop && LETTER[n - base] && <small class="kbd-hint">{LETTER[n - base]}</small>}
+            </button>
           ))}
         </div>
       )}
-      {open && layout === 'piano' && (
+      {open && layout === 'piano' && desktop && (
+        <div class="kbd-piano dsk-piano">
+          <div class="kbd-whites">
+            {DESK_WHITE_PCS.map((pc) => {
+              const n = base + pc;
+              return (
+                <button key={pc} class={`kbd-white${inScale(n, key, scale) ? '' : ' out'}`} aria-label={`Key ${midiToNote(n)}`}
+                  {...(lit.has(n) ? { 'data-lit': '' } : {})} {...pointer(n)}>
+                  <b>{LETTER[pc]}</b><small>{pcName(n)}</small>
+                </button>
+              );
+            })}
+          </div>
+          {BLACK_PCS.map((pc, i) => {
+            const n = base + pc;
+            return (
+              <button key={pc} class={`kbd-black${inScale(n, key, scale) ? '' : ' out'}`} aria-label={`Key ${midiToNote(n)}`}
+                style={{ left: `calc(${(((BLACK_AFTER[i]! + 1) / 8) * 100).toFixed(2)}% - 3.5%)` }}
+                {...(lit.has(n) ? { 'data-lit': '' } : {})} {...pointer(n)}>
+                <b>{LETTER[pc]}</b><small>{pcName(pc)}</small>
+              </button>
+            );
+          })}
+        </div>
+      )}
+      {open && layout === 'piano' && !desktop && (
         <div class="kbd-piano">
           <div class="kbd-whites">
             {WHITE_PCS.map((pc) => {

@@ -9,10 +9,29 @@ import { isMelodic } from '../store/defaults';
 import { ASSISTANT_ENABLED } from '../app/features';
 import { SoloButton } from '../ui/SoloButton';
 
-export function Play() {
+/** `desktop`: the desktop shell lays the grid beside the macros and owns the keyboard and the Capture card. */
+export function Play(props: { desktop?: boolean } = {}) {
   const [rhythmOpen, setRhythmOpen] = useState(false);
   // Changing track or pattern closes the panel and keeps the result.
   useEffect(() => { setRhythmOpen(false); }, [selectedTrack.value, currentPattern.value]);
+  if (props.desktop) {
+    return (
+      <div class="dsk-play">
+        <div class="dsk-play-head">
+          <span style={{ fontSize: '15px', fontWeight: 700, flexGrow: 1 }}>{track.value.name}<span class="hint-wide"> · 16 steps</span></span>
+          <button class="solo-btn" aria-pressed={rhythmOpen} onClick={() => setRhythmOpen((o) => !o)}>Rhythm</button>
+          <SoloButton />
+        </div>
+        <div class="dsk-play-body">
+          <div class="dsk-play-grid"><StepGrid /></div>
+          <div class="dsk-play-side">
+            {rhythmOpen ? <RhythmPanel onClose={() => setRhythmOpen(false)} /> : <Macros />}
+            {ASSISTANT_ENABLED && <AskBar />}
+          </div>
+        </div>
+      </div>
+    );
+  }
   return (
     <>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '0 0 auto' }}>

@@ -89,7 +89,7 @@ function CoarseRatio(props: { ratio: number; onChange: (v: number, merge: boolea
   );
 }
 
-function FmSound(props: { patch: FmPatch }) {
+function FmSound(props: { patch: FmPatch; embedded?: boolean }) {
   const t = selectedTrack.value;
   const patch = props.patch;
   const [browse, setBrowse] = useState(false);
@@ -119,7 +119,7 @@ function FmSound(props: { patch: FmPatch }) {
           preview(t);
         }}>Random</button>
         <button class="sn-btn" onClick={() => setSave(true)}>Save</button>
-        <SoloButton />
+        {!props.embedded && <SoloButton />}
       </div>
 
       <div class="sn-card sn-alg">
@@ -169,9 +169,11 @@ function FmSound(props: { patch: FmPatch }) {
       </div>
       <div class="sn-note">Arrives with the assistant (Phase 6)</div></>}
 
-      <div class="sn-kb-slot">
-        <KeyboardDrawer initialLayout="piano" trackIndex={selectedTrack.value} />
-      </div>
+      {!props.embedded && (
+        <div class="sn-kb-slot">
+          <KeyboardDrawer initialLayout="piano" trackIndex={selectedTrack.value} />
+        </div>
+      )}
 
       {browse && <PatchBrowser patch={patch} onClose={() => setBrowse(false)} />}
       {save && <SaveSheet patch={patch} onClose={() => setSave(false)} />}
@@ -197,6 +199,7 @@ function DrumSlider(props: { track: number; p: DrumParams; def: (typeof DRUM_KEY
       <label for={`dr-${def.key}`}>{def.label}</label>
       <input
         id={`dr-${def.key}`}
+        aria-label={`Drum ${def.label.toLowerCase()}`}
         type="range"
         min={def.min}
         max={def.max}
@@ -217,7 +220,7 @@ function DrumSlider(props: { track: number; p: DrumParams; def: (typeof DRUM_KEY
   );
 }
 
-function DrumSound(props: { p: DrumParams }) {
+function DrumSound(props: { p: DrumParams; embedded?: boolean }) {
   const t = selectedTrack.value;
   return (
     <>
@@ -226,26 +229,28 @@ function DrumSound(props: { p: DrumParams }) {
           <span class="sn-name" style={{ lineHeight: '24px' }}>{track.value.name}</span>
           <span class="sn-sub">drum synth</span>
         </div>
-        <SoloButton />
+        {!props.embedded && <SoloButton />}
       </div>
       <div class="sn-card">
         <span class="sn-card-title">Model</span>
         <div class="sn-chips">
           {MODELS.map((m) => <button key={m} class="sn-chip" aria-pressed={props.p.model === m} aria-disabled="true" title="Model change arrives later">{m}</button>)}
         </div>
+        {/* Desktop: Tone, Decay and Drive are the macros under the matrix, so only the rest is listed here. */}
         {DRUM_KEYS.map((d) => <DrumSlider key={d.key} track={t} p={props.p} def={d} />)}
       </div>
     </>
   );
 }
 
-export function Sound() {
+/** `embedded`: desktop sound panel. Solo and the keyboard live elsewhere in that shell. */
+export function Sound(props: { embedded?: boolean } = {}) {
   const tr = track.value;
   return (
     <>
-      {tr.kind === 'fm' && <FmSound patch={tr.params as FmPatch} />}
-      {tr.kind === 'drum' && <DrumSound p={tr.params as DrumParams} />}
-      {tr.kind === 'sampler' && <SamplerSound p={tr.params as SamplerParams} />}
+      {tr.kind === 'fm' && <FmSound patch={tr.params as FmPatch} embedded={props.embedded} />}
+      {tr.kind === 'drum' && <DrumSound p={tr.params as DrumParams} embedded={props.embedded} />}
+      {tr.kind === 'sampler' && <SamplerSound p={tr.params as SamplerParams} embedded={props.embedded} />}
     </>
   );
 }

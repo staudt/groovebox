@@ -42,7 +42,9 @@ test('BASS shows the default bass line with a hold after G1', async ({ page }) =
   await expect(step(page, 9)).toContainText('Ab1');
   await expect(step(page, 14)).toContainText('G1');
   await expect(step(page, 15)).toContainText('hold');
-  await expect(page.getByRole('button', { name: 'Scale', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  // Phones default to the scale layout; the desktop keyboard is the piano with computer-key labels.
+  const isMobile = (page.viewportSize()?.width ?? 0) < 1024;
+  await expect(page.getByRole('button', { name: isMobile ? 'Scale' : 'Piano', exact: true })).toHaveAttribute('aria-pressed', 'true');
 });
 
 test('PAD shows Cm chord then holds', async ({ page }) => {
@@ -90,6 +92,7 @@ test('piano key writes into the selected step; octave is remembered per track', 
 
 test('scale layout has 8 pads for the minor scale', async ({ page }) => {
   await select(page, 'BASS');
+  await page.getByRole('button', { name: 'Scale', exact: true }).click(); // the desktop default is Piano
   await expect(page.locator('.kbd-pad')).toHaveCount(8);
   await expect(key(page, 'Eb3')).toBeVisible();
   await expect(key(page, 'C4')).toBeVisible();

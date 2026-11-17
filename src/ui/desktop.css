@@ -1,0 +1,87 @@
+/* Desktop shell (>= 1024 px). Amber = selected / played, cyan = playhead, coral = FX. */
+.dsk { height: 100%; position: relative; overflow: hidden; display: flex; flex-direction: column; gap: 10px; padding: 12px 20px; background: var(--ground); }
+.dsk-top { flex: 0 0 auto; height: 48px; display: flex; align-items: center; gap: 16px; }
+.dsk-transport { flex: 1 1 auto; min-width: 0; }
+.dsk-nav { display: flex; align-items: center; gap: 6px; flex: 0 0 auto; }
+.dsk-nav-btn { height: 44px; padding: 0 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--raised); color: var(--text); font-size: 14px; }
+.dsk-nav-btn[aria-current='page'] { background: var(--accent); border-color: var(--accent); color: var(--ground); font-weight: 700; }
+.dsk-nav-btn:disabled { opacity: 0.4; }
+.dsk-fx { height: 44px; width: 64px; border-radius: 12px; border: none; background: var(--fx); color: var(--ground); font-weight: 700; font-size: 15px; }
+.dsk-fx[aria-pressed='true'] { box-shadow: 0 0 0 3px var(--ground), 0 0 0 5px var(--fx); }
+
+.dsk-body { flex: 1 1 auto; min-height: 0; display: flex; gap: 16px; }
+.dsk-main { flex: 1 1 0; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; }
+.dsk-aside { flex: 0 0 clamp(320px, 28vw, 440px); min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 10px; overflow-y: auto; scrollbar-width: thin; }
+
+.dsk-chain { flex: 0 0 auto; display: flex; gap: 6px; }
+.dsk-sec { flex: 1 1 0; min-width: 0; height: 40px; border-radius: 10px; padding: 4px 10px; display: flex; flex-direction: column; justify-content: center; background: var(--raised); border: 1px solid var(--border); font-size: 13px; }
+.dsk-sec[data-active] { background: #2a2418; border: 2px solid var(--accent); }
+.dsk-sec span { font-size: 10px; font-family: var(--font-mono); opacity: 0.8; }
+
+/* Step matrix. The container also has .strip (horizontal scroller on phones): reset it. */
+.dsk-matrix { flex: 0 0 auto; flex-direction: column; overflow: visible; gap: 4px; padding: 10px 12px; background: var(--surface); border: 1px solid #262930; border-radius: 16px; }
+.dsk-row { display: flex; align-items: center; gap: 10px; }
+.dsk-name { flex: 0 0 112px; height: 28px; padding: 0 8px; border-radius: 8px; border: none; background: transparent; color: var(--text); display: flex; align-items: center; justify-content: space-between; gap: 6px; font-size: 13px; font-weight: 700; text-align: left; }
+.dsk-name small { font-size: 10px; font-weight: 400; font-family: var(--font-mono); color: var(--muted); }
+.dsk-name[aria-pressed='true'] { background: var(--accent); color: var(--ground); }
+.dsk-name[aria-pressed='true'] small { color: var(--ground); opacity: 0.8; }
+.dsk-row[data-muted] .dsk-name { opacity: 0.5; }
+.dsk-cells { flex: 1 1 auto; min-width: 0; display: grid; grid-template-columns: repeat(16, minmax(0, 1fr)); gap: 4px; }
+.dsk-cell { height: 26px; border-radius: 6px; border: none; background: #1f2126; position: relative; }
+.dsk-cell[data-beat] { background: #262930; }
+.dsk-cell[data-on] { background: var(--text-2); }
+.dsk-cell[data-hold] { background: #3a3e48; }
+.dsk-row[data-sel] .dsk-cell[data-on] { background: var(--accent); }
+.dsk-row[data-sel] .dsk-cell[data-hold] { background: #7a5a24; }
+.dsk-cell[data-ph] { outline: 2px solid var(--assist); outline-offset: -2px; }
+
+/* Editor under the matrix: the selected track's step grid beside its macros. */
+.dsk-detail { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; overflow-y: auto; scrollbar-width: thin; }
+.dsk-play { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.dsk-play-head { flex: 0 0 auto; display: flex; align-items: center; gap: 8px; }
+.dsk-play-body { flex: 1 1 auto; min-height: 0; display: flex; gap: 16px; }
+.dsk-play-grid { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.dsk-play-grid .step-grid { min-height: 96px; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(44px, 1fr)); }
+.dsk-play-grid .hint { display: none; }
+.dsk-play-side { flex: 0 0 clamp(220px, 24vw, 320px); display: flex; flex-direction: column; gap: 8px; }
+.dsk-play-side > div[style*='grid-template-columns'] { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; row-gap: 12px; }
+
+.dsk-card { flex: 0 0 auto; background: var(--surface); border: 1px solid #262930; border-radius: 16px; padding: 10px 12px; }
+.dsk-keys { display: flex; flex-direction: column; gap: 6px; }
+.dsk-keys-title { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-2); }
+.dsk-keys-title b { flex-grow: 1; font-size: 13px; color: var(--text); }
+.dsk-keys-title span { padding: 3px 8px; border: 1px solid var(--border); border-radius: 8px; }
+.dsk-keys-title kbd, .dsk-hints b { font-family: var(--font-mono); font-weight: 700; color: var(--text); }
+.dsk-keys-idle { height: 76px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--muted); }
+.dsk-kbd { margin: 0; padding: 0; background: transparent; border-top: none; gap: 6px; }
+.dsk-kbd .kbd-btn, .dsk-kbd .kbd-pill { height: 32px; }
+.dsk-kbd .kbd-keys { flex-grow: 0; }
+.dsk-kbd .kbd-head { flex-wrap: wrap; }
+.dsk-kbd .kbd-pad { position: relative; height: 56px; }
+.kbd-hint { position: absolute; top: 4px; right: 6px; font-size: 10px; font-family: var(--font-mono); opacity: 0.7; }
+.dsk-piano, .dsk-piano .kbd-whites { height: 96px; }
+.dsk-piano .kbd-whites { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 4px; }
+.dsk-piano .kbd-white { height: 96px; border-radius: 0 0 10px 10px; flex-direction: column; align-items: center; justify-content: flex-end; gap: 2px; padding-bottom: 8px; }
+.dsk-piano .kbd-black { height: 58px; width: 7%; border-radius: 0 0 8px 8px; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 1px; padding-bottom: 6px; color: var(--text); }
+.dsk-piano b { font-family: var(--font-mono); font-size: 15px; }
+.dsk-piano .kbd-black b { font-size: 13px; }
+.dsk-piano small { font-size: 10px; opacity: 0.75; }
+.dsk-piano .kbd-white[data-lit] { color: var(--ground); }
+
+/* Aside: the Sound screen content in a flex column, like the phone's main area. */
+.dsk-sound { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
+.dsk-sound .alg-fit { min-height: 90px; }
+.dsk-capture { opacity: 0.6; }
+.dsk-capture .dsk-card-title { margin-bottom: 8px; }
+.dsk-capture p { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
+.dsk-chips { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.dsk-chips span { height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid var(--border); background: var(--raised); color: var(--text); font-size: 12px; }
+.dsk-hints { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; color: var(--muted); }
+.dsk-hints span { padding: 4px 8px; border: 1px solid var(--border); border-radius: 8px; }
+
+/* Sheets float over the shell: centered, and the top bar (nav, FX) stays usable. */
+.dsk .sheet-back { justify-content: center; align-items: center; }
+.dsk .sheet { max-width: 480px; border-radius: 16px; }
+.dsk .fx-back { top: 72px; bottom: 0; justify-content: center; }
+.dsk .fx-sheet { max-width: 720px; }
+.dsk .reset-toast { left: 50%; right: auto; width: 420px; transform: translateX(-50%); bottom: 24px; }

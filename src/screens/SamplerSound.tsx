@@ -13,7 +13,7 @@ import { SampleBrowser, type BrowserTab } from '../ui/SampleBrowser';
 const fmtMs = (s: number) => (s < 0.1 ? `${(s * 1000).toFixed(s < 0.01 ? 1 : 0)} ms` : s < 1 ? `${Math.round(s * 1000)} ms` : `${s.toFixed(1)} s`);
 
 /** Sound screen panel for sampler tracks. */
-export function SamplerSound(props: { p: SamplerParams }) {
+export function SamplerSound(props: { p: SamplerParams; embedded?: boolean }) {
   const t = selectedTrack.value;
   const p = props.p;
   const [browse, setBrowse] = useState<BrowserTab | null>(null);
@@ -31,7 +31,7 @@ export function SamplerSound(props: { p: SamplerParams }) {
           <span class="sn-sub">{track.value.name} · sampler</span>
         </div>
         <button class="sn-btn" aria-label="Audition" disabled={!p.sampleId} onClick={play}>▶ Play</button>
-        <SoloButton />
+        {!props.embedded && <SoloButton />}
       </div>
 
       {!p.sampleId ? (
@@ -71,7 +71,7 @@ export function SamplerSound(props: { p: SamplerParams }) {
             </div>
           </div>
 
-          {chromatic && (
+          {chromatic && !props.embedded && (
             <div class="sn-kb-slot">
               <KeyboardDrawer initialLayout="piano" trackIndex={t} />
             </div>

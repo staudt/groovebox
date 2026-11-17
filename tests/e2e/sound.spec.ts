@@ -114,6 +114,7 @@ test('undo with Ctrl+Z', async ({ page }) => {
 
 test('drum track shows the drum panel', async ({ page }) => {
   await page.getByRole('button', { name: /^KICK/ }).click();
-  await expect(page.getByRole('slider', { name: 'Tune' })).toBeVisible();
+  await expect(page.getByRole('slider', { name: 'Drum tune' })).toBeVisible();
+  await expect(page.getByRole('slider', { name: 'Drum tone' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'kick', exact: true })).toHaveAttribute('aria-pressed', 'true');
 });
