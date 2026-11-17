@@ -1,4 +1,4 @@
-// Project sheet: rename and New project (with undo from the toast).
+// Project sheet: rename and New project (creates another project; undo from the toast reopens the old one).
 import { expect, test, type Page } from '@playwright/test';
 
 const step = (page: Page, n: number) => page.getByRole('button', { name: `Step ${n}`, exact: true });
@@ -21,7 +21,7 @@ test('rename the project from the name in the top bar; it survives reload', asyn
   await expect(page.getByRole('button', { name: 'Project: Night drive' })).toBeVisible();
 });
 
-test('New project resets edits after confirming, and Undo brings them back', async ({ page }) => {
+test('New project creates a second project after confirming, and Undo reopens the first and drops the new one', async ({ page }) => {
   // Make a mess: rename, change tempo, add a kick on step 2.
   expect(await isHit(page, 2)).toBe(false);
   await step(page, 2).click();
@@ -32,20 +32,22 @@ test('New project resets edits after confirming, and Undo brings them back', asy
   // Cancel first: nothing changes.
   await page.getByRole('button', { name: 'Cancel' }).click();
   await page.getByRole('button', { name: 'New project…' }).click();
-  await page.getByRole('button', { name: 'Start over' }).click();
+  await page.getByRole('button', { name: 'Create project' }).click();
   await expect(page.getByRole('button', { name: 'Project: Untitled groove' })).toBeVisible();
   await expect.poll(() => isHit(page, 2)).toBe(false);
-  // Undo from the toast.
+  // Undo from the toast: the first project is back and the empty new one is gone.
   await page.getByRole('status').getByRole('button', { name: 'Undo' }).click();
   await expect.poll(() => isHit(page, 2)).toBe(true);
   await expect(page.getByRole('button', { name: 'Project: Mess' })).toBeVisible();
+  await page.getByRole('button', { name: /^Project:/ }).click();
+  await expect(page.getByRole('button', { name: /Projects \(1\)/ })).toBeVisible();
 });
 
-test('the reset project is what loads after reload', async ({ page }) => {
+test('the new project is what loads after reload', async ({ page }) => {
   await step(page, 2).click();
   await page.getByRole('button', { name: /^Project:/ }).click();
   await page.getByRole('button', { name: 'New project…' }).click();
-  await page.getByRole('button', { name: 'Start over' }).click();
+  await page.getByRole('button', { name: 'Create project' }).click();
   await page.waitForTimeout(1500);
   await page.reload();
   await expect(step(page, 1)).toBeVisible();
