@@ -1,5 +1,26 @@
 # Progress
 
+## Phase 4: Song and mixer (2026-11-16) — awaiting phone check
+
+**Built**
+- Patterns A–D per track; global A–D chips in the Play header (switch waits for the next bar while playing; long-press to copy or clear a pattern). 32/64-step patterns span several bars.
+- Song screen per `Song.dc.html`: Loop / Song mode, section chain with progress, section editor (name, bars, move, copy, delete), lane overview (tap a cell: A → B → C → D → silent), scenes (tap recalls on the next bar, long-press to save/rename/delete). Jam queue and Ask bar wait for Phase 6.
+- Mix view (user choice: on the Song screen): fader, pan, mute, mixer solo, Space (reverb) and Delay sends, sidechain duck amount, live meters; master strip with level, duck key track and release.
+- Engine: pattern slots, bar-quantized switching and scene mutes (the fade starts 10 ms before the bar), song sections, balance pan, faders (0.8 = unity), mixer solo combined with the monitoring Solo, sidechain ducking keyed sample-accurately from the key track.
+- One `projectToCommands` translation shared by the live host, offline export and tests.
+- Multiple projects (Project sheet: list, open, duplicate, delete), version history (last 20 per project, at least 60 s apart, restore is undoable), "New project" keeps the old one; WAV export (song once or N loop bars, +2 s tail) and stems (.zip, one soloed WAV per track) through the real worklet.
+- Desktop layout (≥1024 px) per `Desktop.dc.html`: all-tracks matrix, sound panel, piano keyboard labeled with computer keys, Shift+Tab.
+- Schema v3 (mixer, play mode); IndexedDB layout v3 (one record per project, versions). Existing data is migrated in place.
+
+**Verified automatically**
+- 238 unit tests, including the acceptance test: a song with sections, pattern variations, mixer settings and recorded FX moves renders bit-identical after save + reload through IndexedDB. Also: bar-quantized pattern switches, 32-step patterns, song order/silence/loop, pan/fader/solo, sidechain dips and recovers, scene mutes land on the bar, project migration, versions, zip CRCs.
+- 212 Playwright tests incl. Song editing, scenes, Mix controls, A–D chips, projects, WAV/stems downloads (valid WAV of the right length), desktop layout, and every phone screen (now including Song and Mix) fitting 360x640 to 412x915.
+
+**Needs a human**
+- By ear: the sidechain pump on BASS/PAD, pan, scene recall timing, song transitions, and that exported WAVs sound like playback.
+- By touch: faders and pan in the Mix view, section and lane editing, A–D chips (pulse while queued), scene long-press.
+- Downloads on Android (and iOS if available).
+
 ## Phase 3: Sampler and FX (2026-11-16) — awaiting phone check
 
 **Built**
