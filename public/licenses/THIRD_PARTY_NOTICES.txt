@@ -1,7 +1,7 @@
 Groovebox — third-party software notices
 
 The following open-source packages are bundled into this web app (code and fonts).
-Sample credits, when bundled, are in ASSET_LICENSES.md.
+Bundled drum sample credits are in ASSET_LICENSES.md (all CC0 1.0).
 
 ==============================================================================
 @fontsource/ibm-plex-mono 5.3.0 — OFL-1.1

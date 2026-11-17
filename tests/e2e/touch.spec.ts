@@ -54,10 +54,12 @@ async function openSound(page: Page, track: string): Promise<void> {
 }
 
 test.describe('vertical swipes scroll from anywhere draggable', () => {
+  // Screens now fit a phone, so use a short viewport to make them overflow (the fallback scroll).
+  test.use({ viewport: { width: 390, height: 420 } });
   test('control: plain text scrolls', async ({ page }) => {
     await page.goto('/');
     await page.locator('.strip').getByRole('button', { name: /^BASS/ }).click();
-    expect(await swipeScrolls(page, page.getByText(/^Tap to add/))).toBe(true);
+    expect(await swipeScrolls(page, page.locator('.app-main').getByText(/^BASS/).first())).toBe(true);
   });
 
   test('Sound screen: starting on a value control', async ({ page }) => {

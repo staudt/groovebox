@@ -1,12 +1,27 @@
-import { useMemo } from 'preact/hooks';
+import { useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { ALGORITHMS } from '../engine/fm/algorithms';
 import type { FmPatch } from '../store/types';
 import { layoutAlgorithm } from './algLayout';
 
 export function AlgDiagram(props: { patch: FmPatch; selected: number; onSelect: (op: number) => void }) {
   const alg = props.patch.algorithm;
+  const fit = useRef<HTMLDivElement>(null);
+  const [avail, setAvail] = useState<{ w: number; h: number } | null>(null);
   const L = useMemo(() => layoutAlgorithm(alg), [alg]);
   const a = ALGORITHMS[alg - 1]!;
+  // The diagram is the elastic region of the Sound screen: scale the natural layout down to fit.
+  useLayoutEffect(() => {
+    const el = fit.current;
+    if (!el) return;
+    const measure = () => setAvail((p) => (p && p.w === el.clientWidth && p.h === el.clientHeight ? p : { w: el.clientWidth, h: el.clientHeight }));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const scale = avail && avail.w > 0 && avail.h > 0 ? Math.min(1, avail.w / L.width, avail.h / L.height) : 1;
+  const offX = avail ? Math.max(0, (avail.w - L.width * scale) / 2) : 0;
+  const offY = avail ? Math.max(0, (avail.h - L.height * scale) / 2) : 0;
   const box = (op: number) => L.boxes[op - 1]!;
 
   const lines: string[] = [];
@@ -39,7 +54,8 @@ export function AlgDiagram(props: { patch: FmPatch; selected: number; onSelect: 
   const narrow = L.boxes[0]!.w < 60;
 
   return (
-    <div class="alg" style={{ width: `${L.width}px`, height: `${L.height}px` }} data-testid="alg-diagram" data-algorithm={alg}>
+    <div class="alg-fit" ref={fit}>
+    <div class="alg" style={{ width: `${L.width}px`, height: `${L.height}px`, left: `${offX}px`, top: `${offY}px`, transform: `scale(${scale})` }} data-testid="alg-diagram" data-algorithm={alg}>
       <svg width={L.width} height={L.height} viewBox={`0 0 ${L.width} ${L.height}`} style={{ position: 'absolute', left: 0, top: 0 }} aria-hidden="true" fill="none" stroke="#3A3E48" stroke-width="2">
         <path d={lines.join(' ')} />
         <path d={fb} stroke="#5A5F6B" stroke-dasharray={fs === fd ? undefined : '4 3'} />
@@ -63,6 +79,7 @@ export function AlgDiagram(props: { patch: FmPatch; selected: number; onSelect: 
           </button>
         );
       })}
+    </div>
     </div>
   );
 }

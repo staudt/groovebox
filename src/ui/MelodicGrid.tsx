@@ -10,7 +10,6 @@ import './keys.css';
 
 const LONG_PRESS_MS = 400;
 const MOVE_CANCEL_PX = 8;
-const COLS = 4;
 const VISIBLE = 16;
 
 type Press = { i: number; x: number; y: number; timer: number; long: boolean; cancelled: boolean; drag: boolean };
@@ -136,7 +135,8 @@ export function MelodicGrid() {
     <>
       <div
         ref={gridEl}
-        style={{ display: 'grid', gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))`, gap: '8px', touchAction: 'pan-y' }}
+        class="step-grid"
+        style={{ touchAction: 'pan-y' }}
         onPointerMove={onMove}
         onPointerUp={onUp}
         onPointerCancel={onCancel}
@@ -161,22 +161,22 @@ export function MelodicGrid() {
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); tap(i); } }}
               style={{
                 touchAction: 'pan-y',
-                aspectRatio: '1 / 0.78', borderRadius: '12px',
+                borderRadius: '12px',
                 background: hold ? 'rgba(255,181,71,0.44)' : on ? 'var(--accent)' : beat ? 'var(--step-beat)' : 'var(--step-off)',
                 border: `1px solid ${on ? 'var(--accent)' : 'var(--step-border)'}`,
                 color: on ? 'var(--ground)' : 'var(--muted)',
-                display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-start',
-                padding: '7px', minWidth: 0,
+                display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
+                padding: '6px', minWidth: 0, minHeight: 0, overflow: 'hidden',
               }}
             >
-              <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', opacity: 0.7 }}>{i + 1}</span>
-              <span style={{ fontSize: '15px', fontWeight: 700, minHeight: '18px', width: '100%', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{main}</span>
-              <span style={{ fontSize: '9px', fontFamily: 'var(--font-mono)', opacity: 0.85, minHeight: '11px' }}>{sub}</span>
+              <span style={{ position: 'absolute', top: '3px', left: '6px', fontSize: '10px', lineHeight: '12px', fontFamily: 'var(--font-mono)', opacity: 0.7 }}>{i + 1}</span>
+              <span style={{ fontSize: '15px', fontWeight: 700, lineHeight: '18px', width: '100%', textAlign: 'center', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{main}</span>
+              <span style={{ position: 'absolute', bottom: '2px', left: 0, right: 0, textAlign: 'center', fontSize: '9px', lineHeight: '11px', fontFamily: 'var(--font-mono)', opacity: 0.85 }}>{sub}</span>
             </button>
           );
         })}
       </div>
-      <div style={{ fontSize: '12px', color: 'var(--muted)', textAlign: 'center' }}>Tap to add · drag right to hold · long-press for note or chord</div>
+      <div class="hint" style={{ fontSize: '12px', color: 'var(--muted)', textAlign: 'center', flex: '0 0 auto' }}>Tap to add · drag right to hold · long-press for note or chord</div>
       {picker !== null && pickStep && (
         <StepPicker track={ti} index={picker} step={pickStep} onClose={() => setPicker(null)} />
       )}

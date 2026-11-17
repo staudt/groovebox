@@ -9,6 +9,8 @@ const DEAD_PX = 6;
  */
 export function DragValue(props: {
   label: string;
+  /** Accessible name when it differs from the short visible label. */
+  aria?: string;
   value: number;
   min: number;
   max: number;
@@ -39,7 +41,7 @@ export function DragValue(props: {
       class="dv"
       role="slider"
       tabIndex={0}
-      aria-label={props.label}
+      aria-label={props.aria ?? props.label}
       aria-valuemin={props.min}
       aria-valuemax={props.max}
       aria-valuenow={props.value}

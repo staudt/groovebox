@@ -3,7 +3,7 @@ import type { FmOperator } from '../store/types';
 
 export type EnvChange = Partial<Pick<FmOperator, 'a' | 'd' | 's' | 'r'>>;
 
-const W = 334, H = 70, PAD = 8;
+const W = 334, H = 56, PAD = 8;
 const SEG = (W - PAD * 2) / 4;
 const Y_TOP = PAD, Y_BOT = H - 2;
 const clamp01 = (v: number) => Math.min(1, Math.max(0, Math.round(v * 1000) / 1000));
@@ -58,7 +58,7 @@ export function EnvelopeEditor(props: { op: FmOperator; onChange: (c: EnvChange,
   };
 
   return (
-    <svg class="env" width={W} height={H} viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Envelope: drag the points to shape attack, decay, sustain and release" style={{ touchAction: 'pan-y' }}>
+    <svg class="env" preserveAspectRatio="none" viewBox={`0 0 ${W} ${H}`} role="group" aria-label="Envelope: drag the points to shape attack, decay, sustain and release" style={{ touchAction: 'pan-y' }}>
       <path d={`M0 ${H - 0.5} H${W}`} stroke="#2A2D34" />
       <path d={fill} fill="rgba(255,181,71,0.12)" />
       <path d={line} fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linejoin="round" />

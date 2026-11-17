@@ -27,7 +27,7 @@ export function TrackStrip() {
               else selectedTrack.value = i;
             }}
             style={{
-              flexShrink: 0, minWidth: '56px', height: '48px', padding: '0 9px', borderRadius: '12px',
+              flexShrink: 0, minWidth: '56px', height: '44px', padding: '0 9px', borderRadius: '12px',
               display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'flex-start', gap: '1px',
               opacity: !ok ? 0.4 : silenced ? 0.45 : 1,
               ...(on ? { background: 'var(--accent)', color: 'var(--ground)', border: '1px solid var(--accent)' } : { background: 'var(--raised)', color: 'var(--text)', border: '1px solid var(--border)' }),

@@ -22,7 +22,7 @@ function Knob(props: { index: number; label: string; value: number; color: strin
       aria-disabled={props.inert}
       tabIndex={props.inert ? -1 : 0}
       class="noselect"
-      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', touchAction: 'pan-y', opacity: props.inert ? 0.4 : 1, minHeight: '44px', cursor: props.inert ? 'default' : 'ns-resize' }}
+      style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px', touchAction: 'pan-y', opacity: props.inert ? 0.4 : 1, minHeight: '44px', cursor: props.inert ? 'default' : 'ns-resize' }}
       onPointerDown={(e) => {
         if (props.inert) return;
         (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
@@ -53,7 +53,7 @@ function Knob(props: { index: number; label: string; value: number; color: strin
       }}
     >
       {/* The dial itself takes all touch directions (vertical drag turns it); the label scrolls. */}
-      <svg width="44" height="44" viewBox="0 0 52 52" aria-hidden="true" style={{ touchAction: 'none' }}>
+      <svg width="40" height="40" viewBox="0 0 52 52" aria-hidden="true" style={{ touchAction: 'none' }}>
         <circle cx="26" cy="26" r="20" fill="none" stroke="#2A2D34" stroke-width="5" stroke-dasharray={`${ARC} 125.7`} transform="rotate(135 26 26)" stroke-linecap="round" />
         <circle cx="26" cy="26" r="20" fill="none" stroke={props.color} stroke-width="5" stroke-dasharray={`${(ARC * value).toFixed(1)} 125.7`} transform="rotate(135 26 26)" stroke-linecap="round" />
       </svg>
@@ -65,7 +65,7 @@ function Knob(props: { index: number; label: string; value: number; color: strin
 export function Macros() {
   const macros = track.value.macros;
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '8px', marginTop: '4px' }}>
+    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, minmax(0, 1fr))', gap: '8px', flex: '0 0 auto' }}>
       {macros.map((m, i) => (
         <Knob key={i} index={i} label={m.label} value={m.value} color={i === 3 ? 'var(--assist)' : 'var(--accent)'} inert={false} />
       ))}

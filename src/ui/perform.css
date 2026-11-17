@@ -1,21 +1,21 @@
 /* Perform screen. Amber = what the user plays or selects, coral = FX. */
-.perf-row { display: flex; align-items: center; gap: 8px; margin-top: 2px; flex: 0 0 auto; }
+.perf-row { display: flex; align-items: center; gap: 8px; flex: 0 0 auto; }
 .perf-key { height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--raised); color: var(--text); font-size: 12px; }
 .perf-toggle { height: 44px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--raised); color: var(--text); font-size: 12px; }
 .perf-toggle[aria-pressed='true'] { background: var(--accent); border-color: var(--accent); color: var(--ground); }
-.perf-xy { position: relative; height: 160px; flex: 0 0 auto; border-radius: 16px; background: var(--surface); border: 1px solid #262930; overflow: hidden; touch-action: none; cursor: crosshair; }
+.perf-xy { position: relative; flex: 4 1 0; min-height: 90px; border-radius: 16px; background: var(--surface); border: 1px solid #262930; overflow: hidden; touch-action: none; cursor: crosshair; }
 .perf-xy-grid { position: absolute; inset: 0; width: 100%; height: 100%; }
 .perf-xy-grid path { stroke: #23262d; fill: none; }
 .perf-xy-grid path.cross { stroke: var(--accent); stroke-opacity: 0.35; }
 .perf-dot { position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 12px rgba(255, 181, 71, 0.18); pointer-events: none; }
 .perf-xy-label { position: absolute; font-size: 11px; color: var(--muted); font-family: var(--font-mono); pointer-events: none; }
 .perf-fx { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; flex: 0 0 auto; }
-.perf-fxbtn { height: 54px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; background: var(--raised); color: var(--text); border: 1px solid var(--border); touch-action: none; }
+.perf-fxbtn { height: 44px; border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0; background: var(--raised); color: var(--text); border: 1px solid var(--border); touch-action: none; }
 .perf-fxbtn[aria-pressed='true'] { background: var(--fx); border-color: var(--fx); color: var(--ground); }
 .perf-fx-name { font-size: 13px; font-weight: 700; }
 .perf-fx-sub { font-size: 10px; opacity: 0.75; }
-.perf-pads { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; flex: 0 0 auto; }
-.perf-pad { height: 62px; border-radius: 14px; background: var(--raised); border: 1px solid var(--border); color: var(--text); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; touch-action: none; }
+.perf-pads { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; flex: 6 1 0; min-height: 200px; grid-template-rows: repeat(4, minmax(44px, 1fr)); }
+.perf-pad { min-height: 0; border-radius: 14px; background: var(--raised); border: 1px solid var(--border); color: var(--text); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; touch-action: none; }
 .perf-pad.chord { background: #262a33; }
 .perf-pad[data-lit] { background: var(--accent); border-color: var(--accent); color: var(--ground); }
 .perf-pad:disabled { opacity: 0.25; }

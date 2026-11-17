@@ -8,7 +8,6 @@ import { MelodicGrid } from './MelodicGrid';
 
 const LONG_PRESS_MS = 400;
 const MOVE_CANCEL_PX = 8;
-const COLS = 4;
 
 /** Drum tracks get the hit grid, melodic tracks the note/hold/chord grid. */
 export function StepGrid() {
@@ -95,7 +94,7 @@ function DrumGrid() {
 
   return (
     <>
-      <div style={{ display: 'grid', gridTemplateColumns: `repeat(${COLS}, minmax(0, 1fr))`, gap: '8px' }}>
+      <div class="step-grid">
         {pat.steps.slice(0, 16).map((s, i) => {
           const on = s.t === 'hit';
           const vel = s.t === 'hit' ? s.vel : 0;
@@ -115,26 +114,26 @@ function DrumGrid() {
               onContextMenu={(e) => e.preventDefault()}
               onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); toggle(i); } }}
               style={{
-                aspectRatio: '1 / 0.78', borderRadius: '12px',
+                borderRadius: '12px',
                 background: on ? 'var(--accent)' : beat ? 'var(--step-beat)' : 'var(--step-off)',
                 border: `1px solid ${on ? 'var(--accent)' : 'var(--step-border)'}`,
                 color: on ? 'var(--ground)' : 'var(--muted)',
-                display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'flex-start',
-                padding: '7px', minWidth: 0,
+                display: 'block',
+                padding: '6px', minWidth: 0, minHeight: 0, overflow: 'hidden',
               }}
             >
-              <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', opacity: 0.7 }}>{i + 1}</span>
-              <span style={{ fontSize: '10px', fontFamily: 'var(--font-mono)', fontWeight: 700, opacity: 0.9, minHeight: '12px' }}>
+              <span style={{ position: 'absolute', top: '4px', left: '6px', fontSize: '10px', lineHeight: '12px', fontFamily: 'var(--font-mono)', opacity: 0.7 }}>{i + 1}</span>
+              <span style={{ position: 'absolute', top: '4px', right: '6px', fontSize: '10px', lineHeight: '12px', fontFamily: 'var(--font-mono)', fontWeight: 700, opacity: 0.9 }}>
                 {chance !== undefined && chance < 1 ? `${Math.round(chance * 100)}%` : ''}
               </span>
-              <span style={{ display: 'block', width: '100%', height: '6px', borderRadius: '3px', background: on ? 'rgba(18,19,22,0.25)' : 'transparent', overflow: 'hidden' }}>
+              <span style={{ position: 'absolute', left: '6px', right: '6px', bottom: '6px', display: 'block', height: '6px', borderRadius: '3px', background: on ? 'rgba(18,19,22,0.25)' : 'transparent', overflow: 'hidden' }}>
                 <span style={{ display: 'block', height: '100%', width: `${(vel / 127) * 100}%`, background: on ? 'var(--ground)' : 'transparent' }} />
               </span>
             </button>
           );
         })}
       </div>
-      <div style={{ fontSize: '12px', color: 'var(--muted)', textAlign: 'center' }}>Tap to add · long-press for velocity and chance</div>
+      <div class="hint" style={{ fontSize: '12px', color: 'var(--muted)', textAlign: 'center', flex: '0 0 auto' }}>Tap to add · long-press for velocity and chance</div>
       {editing !== null && editStep?.t === 'hit' && (
         <StepEditor track={ti} index={editing} step={editStep} onClose={() => setEditing(null)} />
       )}
