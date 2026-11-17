@@ -1,0 +1,76 @@
+// Every screen fits the phone without scrolling, with usable touch targets.
+// 360x640 is a Samsung S22 in Chrome with the address bar showing (the tightest common case);
+// 360x700 the same phone as an installed app; 390x844 the design frame; 412x915 a large Android.
+import { expect, test, type Page } from '@playwright/test';
+
+test.skip(({ isMobile }) => !isMobile, 'phone layouts');
+
+const SIZES: [number, number][] = [
+  [360, 640],
+  [360, 700],
+  [390, 844],
+  [412, 915],
+];
+
+type Case = { name: string; track: string; screen: 'Play' | 'Sound' | 'Perform'; setup?: (page: Page) => Promise<void> };
+
+const openKeys = async (page: Page) => {
+  // Make sure the keyboard drawer is expanded (it is the part that used to get cut off).
+  const toggle = page.getByRole('button', { name: /^Keys/ });
+  if ((await toggle.count()) && (await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click();
+};
+
+const CASES: Case[] = [
+  { name: 'Play drum', track: 'KICK', screen: 'Play' },
+  { name: 'Play melodic with keyboard', track: 'BASS', screen: 'Play', setup: openKeys },
+  { name: 'Play one-shot sampler', track: 'PERC', screen: 'Play' },
+  { name: 'Perform melodic', track: 'KEYS', screen: 'Perform' },
+  { name: 'Perform drum', track: 'KICK', screen: 'Perform' },
+  { name: 'Sound FM with keyboard', track: 'BASS', screen: 'Sound', setup: openKeys },
+  { name: 'Sound drum', track: 'KICK', screen: 'Sound' },
+  { name: 'Sound sampler', track: 'PERC', screen: 'Sound' },
+];
+
+async function go(page: Page, c: Case): Promise<void> {
+  await page.locator('.strip').getByRole('button', { name: new RegExp(`^${c.track}`) }).click();
+  await page.locator('nav').getByRole('button', { name: new RegExp(`^${c.screen}$`) }).click();
+  if (c.setup) await c.setup(page);
+  await page.waitForTimeout(100);
+}
+
+const overflow = (page: Page) =>
+  page.evaluate(() => {
+    const main = document.querySelector('.app-main')!;
+    const doc = document.scrollingElement!;
+    return { main: main.scrollHeight - main.clientHeight, doc: doc.scrollHeight - window.innerHeight };
+  });
+
+/** Smallest height among the given interactive elements that are visible. */
+const minHeight = (page: Page, selector: string) =>
+  page.evaluate((sel) => {
+    let m = Infinity;
+    for (const el of Array.from(document.querySelectorAll(sel))) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) m = Math.min(m, r.height);
+    }
+    return m;
+  }, selector);
+
+for (const [w, h] of SIZES) {
+  test.describe(`${w}x${h}`, () => {
+    test.use({ viewport: { width: w, height: h } });
+    for (const c of CASES) {
+      test(`${c.name} fits without scrolling`, async ({ page }) => {
+        await page.goto('/');
+        await go(page, c);
+        const o = await overflow(page);
+        expect(o.main, 'main area overflow (px)').toBeLessThanOrEqual(1);
+        expect(o.doc, 'page overflow (px)').toBeLessThanOrEqual(1);
+        // Touch targets stay usable after shrinking.
+        expect(await minHeight(page, '.step, [aria-label^="Step "]'), 'steps').toBeGreaterThanOrEqual(c.screen === 'Play' ? 40 : 0);
+        expect(await minHeight(page, '.kbd-pad, .kbd-white'), 'keys').toBeGreaterThanOrEqual(44);
+        expect(await minHeight(page, '.perf-pads button'), 'pads').toBeGreaterThanOrEqual(c.screen === 'Perform' ? 44 : 0);
+      });
+    }
+  });
+}
