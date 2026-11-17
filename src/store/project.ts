@@ -1,7 +1,7 @@
 // Project store: single source of truth on the main thread.
 // Every mutation goes through `apply(cmd)`, which records its inverse for undo/redo.
 import { batch, computed, signal } from '@preact/signals';
-import type { DrumParams, FmOpKey, FmPatch, FxMove, PatternId, PitchClass, Project, SamplerParams, ScaleName, Step, Track } from './types';
+import type { ChannelState, DrumParams, FmOpKey, FmPatch, FxMove, MixerState, PatternId, PlayMode, Scene, Section, PitchClass, Project, SamplerParams, ScaleName, Step, Track } from './types';
 import { BPM_MAX, BPM_MIN, SWING_MAX, SWING_MIN } from './types';
 import { defaultProject } from './defaults';
 
@@ -23,6 +23,15 @@ export type Command =
   /** Replace the recorded FX moves of one pattern slot (a whole recording pass, or Clear). */
   | { type: 'setFxMoves'; pattern: PatternId; moves: FxMove[] }
   | { type: 'setName'; name: string }
+  /** Mixer channel settings for one track (clamped). */
+  | { type: 'setChannel'; track: number; patch: Partial<ChannelState> }
+  | { type: 'setMixer'; patch: Partial<Pick<MixerState, 'master' | 'duckSource' | 'duckRelease'>> }
+  /** Replace the section list (add, remove, reorder, rename, bars, pattern per track). */
+  | { type: 'setSections'; sections: Section[] }
+  | { type: 'setScenes'; scenes: Scene[] }
+  | { type: 'setPlayMode'; mode: PlayMode }
+  /** Copy pattern `from` to `to` on one track (or every track when track is -1). */
+  | { type: 'copyPattern'; track: number; from: PatternId; to: PatternId }
   /** Replace the whole project (New project). The inverse brings the old one back. */
   | { type: 'replaceProject'; project: Project }
   | { type: 'setKey'; key: PitchClass }
@@ -190,6 +199,54 @@ export function reduce(p: Project, cmd: Command): [Project, Command] {
       const prev = p.fxMoves?.[cmd.pattern] ?? [];
       const moves = cmd.moves.slice(0, MAX_FX_MOVES).sort((a, b) => a.at - b.at);
       return [{ ...p, fxMoves: { ...p.fxMoves, [cmd.pattern]: moves } }, { ...cmd, moves: prev }];
+    }
+    case 'setChannel': {
+      const prev = p.mixer.tracks[cmd.track]!;
+      const c = { ...prev, ...cmd.patch };
+      const next: ChannelState = {
+        level: clamp(c.level, 0, 1),
+        pan: clamp(c.pan, -1, 1),
+        sendB: clamp(c.sendB, 0, 1),
+        duck: clamp(c.duck, 0, 1),
+        solo: !!c.solo,
+      };
+      const tracks = p.mixer.tracks.slice();
+      tracks[cmd.track] = next;
+      const inverse: Partial<ChannelState> = {};
+      for (const k of Object.keys(cmd.patch) as (keyof ChannelState)[]) (inverse as Record<string, unknown>)[k] = prev[k];
+      return [{ ...p, mixer: { ...p.mixer, tracks } }, { ...cmd, patch: inverse }];
+    }
+    case 'setMixer': {
+      const m = p.mixer;
+      const next = {
+        ...m,
+        master: clamp(cmd.patch.master ?? m.master, 0, 1),
+        duckSource: Math.round(clamp(cmd.patch.duckSource ?? m.duckSource, 0, 7)),
+        duckRelease: clamp(cmd.patch.duckRelease ?? m.duckRelease, 0, 1),
+      };
+      return [{ ...p, mixer: next }, { type: 'setMixer', patch: { master: m.master, duckSource: m.duckSource, duckRelease: m.duckRelease } }];
+    }
+    case 'setSections':
+      return [{ ...p, sections: cmd.sections.map((s) => ({ ...s, bars: Math.round(clamp(s.bars, 1, 64)) })) }, { type: 'setSections', sections: p.sections }];
+    case 'setScenes':
+      return [{ ...p, scenes: cmd.scenes }, { type: 'setScenes', scenes: p.scenes }];
+    case 'setPlayMode':
+      return [{ ...p, playMode: cmd.mode }, { type: 'setPlayMode', mode: p.playMode }];
+    case 'copyPattern': {
+      const idx = cmd.track < 0 ? p.tracks.map((_, i) => i) : [cmd.track];
+      let next = p;
+      const before = new Map<number, Track['patterns']>();
+      for (const i of idx) {
+        before.set(i, p.tracks[i]!.patterns);
+        next = mapTrack(next, i, (t) => ({ ...t, patterns: { ...t.patterns, [cmd.to]: structuredClone(t.patterns[cmd.from]) } }));
+      }
+      // Inverse: restore the overwritten slots exactly.
+      const restore = (q: Project): Project => {
+        let r = q;
+        for (const [i, pats] of before) r = mapTrack(r, i, (t) => ({ ...t, patterns: { ...t.patterns, [cmd.to]: pats[cmd.to] } }));
+        return r;
+      };
+      return [next, { type: 'replaceProject', project: restore(next) }];
     }
     case 'setName': {
       const name = cmd.name.trim().slice(0, 40) || 'Untitled groove';

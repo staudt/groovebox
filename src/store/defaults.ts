@@ -1,8 +1,8 @@
 import { parsePattern } from './notation';
 import { presetByName } from './fmPresets';
-import type { DrumModel, DrumParams, MacroMap, Pattern, PatternId, Project, SamplerParams, Track, TrackKind } from './types';
+import type { ChannelState, DrumModel, DrumParams, MacroMap, MixerState, Pattern, PatternId, Project, SamplerParams, Track, TrackKind } from './types';
 
-export const SCHEMA_VERSION = 2;
+export const SCHEMA_VERSION = 3;
 
 const empty = (): Pattern => parsePattern('', 16);
 
@@ -26,6 +26,16 @@ export function drumParams(model: DrumModel): DrumParams {
 
 export function samplerParams(sampleId: string | null = null, name = 'Empty'): SamplerParams {
   return { kind: 'sampler', name, sampleId, start: 0, end: 1, pitch: 0, reverse: false, mode: 'oneshot', root: 60, level: 0.8, attack: 0, release: 0.3 };
+}
+
+export const defaultChannel = (): ChannelState => ({ level: 0.8, pan: 0, sendB: 0, duck: 0, solo: false });
+
+export function defaultMixer(): MixerState {
+  const tracks = Array.from({ length: 8 }, defaultChannel);
+  // A little sidechain pump on the bass and pad out of the box.
+  tracks[3] = { ...tracks[3]!, duck: 0.35 };
+  tracks[5] = { ...tracks[5]!, duck: 0.45 };
+  return { master: 0.9, tracks, duckSource: 0, duckRelease: 0.4 };
 }
 
 function macros(p: DrumParams | null, space = 0): Track['macros'] {
@@ -71,7 +81,8 @@ export function defaultProject(): Project {
     ],
     sections: [],
     scenes: [],
-    mixer: { master: 0.9 },
+    mixer: defaultMixer(),
+    playMode: 'loop',
     version: SCHEMA_VERSION,
   };
 }

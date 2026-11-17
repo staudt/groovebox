@@ -2,7 +2,7 @@
 // Small hand-written wrapper; no runtime dependency.
 import { effect } from '@preact/signals';
 import type { FmPatch, Project } from './types';
-import { SCHEMA_VERSION, defaultProject, samplerParams } from './defaults';
+import { SCHEMA_VERSION, defaultMixer, defaultProject, samplerParams } from './defaults';
 import { clampPatch, project, resetProject } from './project';
 
 const DB = 'groovebox';
@@ -62,6 +62,19 @@ export function migrate(raw: unknown): Project | null {
         if (t.name === 'PERC' && t.kind === 'drum') return { ...t, kind: 'sampler' as const, params: samplerParams('kit:tambourine', 'tambourine') };
         return t;
       }),
+    };
+  }
+  // v2 -> v3: full mixer (levels, pan, delay send, sidechain), play mode.
+  if (out.version < 3) {
+    const old = out.mixer as Partial<typeof out.mixer> | undefined;
+    const fresh = defaultMixer();
+    out = {
+      ...out,
+      version: 3,
+      mixer: { ...fresh, master: old?.master ?? fresh.master, tracks: fresh.tracks.map((c) => ({ ...c, duck: 0 })) },
+      playMode: 'loop',
+      sections: out.sections ?? [],
+      scenes: out.scenes ?? [],
     };
   }
   return out;

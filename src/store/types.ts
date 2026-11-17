@@ -103,7 +103,18 @@ export type Section = {
   patternByTrack: Record<string, PatternId | null>;
 };
 export type Scene = { id: string; name: string; mutes: Record<string, boolean> };
-export type MixerState = { master: number };
+/** One mixer channel. level: fader 0..1 (0.8 = unity), pan -1..1, sendB: delay send 0..1,
+ * duck: sidechain amount 0..1 (keyed from `MixerState.duckSource`). Send A (reverb) is the Space macro. */
+export type ChannelState = { level: number; pan: number; sendB: number; duck: number; solo: boolean };
+export type MixerState = {
+  master: number;
+  tracks: ChannelState[];
+  /** Track whose hits trigger the sidechain ducking (the kick by default). */
+  duckSource: number;
+  /** Duck release 0..1 (exp-mapped 40 ms .. 1 s). */
+  duckRelease: number;
+};
+export type PlayMode = 'loop' | 'song';
 
 /**
  * One recorded punch-in FX move: at `at` (in 16th steps from the pattern start, fractional),
@@ -123,6 +134,8 @@ export type Project = {
   sections: Section[];
   scenes: Scene[];
   mixer: MixerState;
+  /** Loop: all tracks play the selected pattern (A-D). Song: the sections play in order. */
+  playMode: PlayMode;
   /** Recorded FX moves per pattern slot ("Moves" in the FX sheet); replayed every loop. */
   fxMoves?: Partial<Record<PatternId, FxMove[]>>;
   version: number;
