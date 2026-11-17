@@ -44,7 +44,12 @@ test('select an operator and change its level', async ({ page }) => {
   await page.keyboard.press('ArrowLeft');
   await page.keyboard.press('ArrowLeft');
   await expect(level).toHaveAttribute('aria-valuenow', String(v0 - 2));
-  await expect(page.getByTestId('op-readout')).toContainText(`lvl ${v0 - 2}`);
+  // The operator nav buttons switch operators without the (small, scaled) diagram.
+  await page.getByRole('button', { name: 'Next operator' }).click();
+  await expect(page.getByTestId('op-title')).toHaveText('OP4');
+  await page.getByRole('button', { name: 'Previous operator' }).click();
+  await expect(page.getByTestId('op-title')).toHaveText('OP3');
+  await expect(level).toHaveAttribute('aria-valuenow', String(v0 - 2));
   // drag with the pointer
   const box = (await level.boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);

@@ -6,13 +6,14 @@ import { FM_PRESETS, randomPatch } from '../store/fmPresets';
 import { deletePatch, listPatches, savePatch } from '../store/persist';
 import { ALGORITHMS, operatorRole } from '../engine/fm/algorithms';
 import { audition, previewNotes } from '../engine/host';
-import { Sheet, Stepper } from '../ui/Sheet';
+import { Sheet } from '../ui/Sheet';
 import { AlgDiagram } from '../ui/AlgDiagram';
 import { DragValue } from '../ui/DragValue';
 import { EnvelopeEditor, type EnvChange } from '../ui/EnvelopeEditor';
 import { KeyboardDrawer } from '../ui/KeyboardDrawer';
 import { SoloButton } from '../ui/SoloButton';
 import { SamplerSound } from './SamplerSound';
+import { ASSISTANT_ENABLED } from '../app/features';
 import '../ui/sound.css';
 
 const selOp = signal(0);
@@ -72,21 +73,19 @@ function SaveSheet(props: { patch: FmPatch; onClose: () => void }) {
   );
 }
 
-function CoarseRatio(props: { ratio: number; onChange: (v: number) => void }) {
+/** Coarse ratio as a DragValue over the step list 0.5, 1..31 (index 0..31). */
+function CoarseRatio(props: { ratio: number; onChange: (v: number, merge: boolean) => void }) {
   const r = props.ratio;
   const coarse = r < 1 ? 0.5 : Math.floor(r);
   const fine = r - coarse;
-  const idx = COARSE.indexOf(coarse);
-  const go = (d: number) => {
-    const c = COARSE[Math.min(COARSE.length - 1, Math.max(0, idx + d))]!;
-    props.onChange(Math.round((c + (c < 1 ? Math.min(fine, 0.49) : fine)) * 100) / 100);
-  };
+  const idx = Math.max(0, COARSE.indexOf(coarse));
   return (
-    <div class="sn-coarse" role="group" aria-label="Coarse ratio">
-      <button aria-label="Coarse ratio down" disabled={idx <= 0} onClick={() => go(-1)}>−</button>
-      <span data-testid="coarse">×{coarse}</span>
-      <button aria-label="Coarse ratio up" disabled={idx >= COARSE.length - 1} onClick={() => go(1)}>+</button>
-    </div>
+    <DragValue label="Coarse" aria="Coarse ratio" value={idx} min={0} max={COARSE.length - 1} step={1} span={160}
+      fmt={(i) => '×' + COARSE[i]} testId="coarse"
+      onChange={(i, m) => {
+        const c = COARSE[i]!;
+        props.onChange(Math.round((c + (c < 1 ? Math.min(fine, 0.49) : fine)) * 100) / 100, m);
+      }} />
   );
 }
 
@@ -123,47 +122,52 @@ function FmSound(props: { patch: FmPatch }) {
         <SoloButton />
       </div>
 
-      <div class="sn-card">
+      <div class="sn-card sn-alg">
         <div class="sn-card-head">
           <span class="sn-card-title">Algorithm</span>
           <button class="sn-nav" aria-label="Previous algorithm" disabled={alg <= 1} onClick={() => apply({ type: 'setFmGlobal', track: t, key: 'algorithm', value: alg - 1 })}>‹</button>
           <span class="sn-mono" data-testid="alg-num">{String(alg).padStart(2, '0')} / 32</span>
           <button class="sn-nav" aria-label="Next algorithm" disabled={alg >= 32} onClick={() => apply({ type: 'setFmGlobal', track: t, key: 'algorithm', value: alg + 1 })}>›</button>
+          <span class="sn-fb">FB</span>
+          <button class="sn-nav" aria-label="Feedback down" disabled={patch.feedback <= 0} onClick={() => apply({ type: 'setFmGlobal', track: t, key: 'feedback', value: patch.feedback - 1 })}>‹</button>
+          <span class="sn-mono" data-testid="fb-num">{patch.feedback}</span>
+          <button class="sn-nav" aria-label="Feedback up" disabled={patch.feedback >= 7} onClick={() => apply({ type: 'setFmGlobal', track: t, key: 'feedback', value: patch.feedback + 1 })}>›</button>
         </div>
         <AlgDiagram patch={patch} selected={si} onSelect={(i) => { selOp.value = i; }} />
-        <Stepper label="Feedback" value={patch.feedback} min={0} max={7} onChange={(v) => apply({ type: 'setFmGlobal', track: t, key: 'feedback', value: v })} />
       </div>
 
       <div class="sn-card">
         <div class="sn-opmeta">
           <b data-testid="op-title">OP{si + 1}</b>
           <span class="sn-role" data-testid="op-role">{operatorRole(alg, si + 1)}</span>
-          <span class="sn-readout" data-testid="op-readout">ratio {f2(o.ratio)} · lvl {o.level}</span>
+          {/* 44 px operator switching: on short screens the scaled diagram's boxes are small to tap. */}
+          <button class="sn-opnav" aria-label="Previous operator" onClick={() => { selOp.value = (si + 5) % 6; }}>‹</button>
+          <button class="sn-opnav" aria-label="Next operator" onClick={() => { selOp.value = (si + 1) % 6; }}>›</button>
         </div>
+        <div class="env-wrap">
         <EnvelopeEditor op={o} onChange={setEnv} />
         <div class="env-labels">
           {(['a', 'd', 's', 'r'] as const).map((k, i) => (
             <span key={k}>{['ATK', 'DEC', 'SUS', 'REL'][i]} <b data-testid={`env-${k}`}>{o[k].toFixed(2)}</b></span>
           ))}
         </div>
-        <div class="sn-grid">
-          <div class="sn-ratio">
-            <CoarseRatio ratio={o.ratio} onChange={(v) => setOp('ratio', v)} />
+        </div>
+        <div class="sn-vals">
+            <CoarseRatio ratio={o.ratio} onChange={(v, m) => setOp('ratio', v, m)} />
             <DragValue label="Fine" value={Math.round(fine * 100) / 100} min={0} max={coarse < 1 ? 0.49 : 0.99} step={0.01} span={220} fmt={(v) => '+' + f2(v)}
               onChange={(v, m) => setOp('ratio', coarse + v, m)} testId="fine" />
-          </div>
           <DragValue label="Level" value={o.level} min={0} max={99} step={1} onChange={(v, m) => setOp('level', v, m)} onCommit={() => preview(t)} testId="level" />
           <DragValue label="Detune" value={o.detune} min={-7} max={7} step={1} span={140} fmt={(v) => (v > 0 ? '+' + v : String(v))} onChange={(v, m) => setOp('detune', v, m)} testId="detune" />
           <DragValue label="Vel sens" value={o.velSens} min={0} max={7} step={1} span={140} onChange={(v, m) => setOp('velSens', v, m)} testId="velsens" />
         </div>
       </div>
 
-      <div class="sn-assist" aria-disabled="true">
+      {ASSISTANT_ENABLED && <><div class="sn-assist" aria-disabled="true">
         <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true" fill="none" stroke="#5CC8FF" stroke-width="1.6" stroke-linecap="round"><path d="M9 2 L10.6 7.4 L16 9 L10.6 10.6 L9 16 L7.4 10.6 L2 9 L7.4 7.4 Z" /></svg>
         <input aria-label="Describe a sound" placeholder="Describe a sound: glassy bell, slow attack…" disabled />
         <button disabled>Make</button>
       </div>
-      <div class="sn-note">Arrives with the assistant (Phase 6)</div>
+      <div class="sn-note">Arrives with the assistant (Phase 6)</div></>}
 
       <div class="sn-kb-slot">
         <KeyboardDrawer initialLayout="piano" trackIndex={selectedTrack.value} />
