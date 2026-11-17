@@ -7,7 +7,9 @@ import { Sound } from '../screens/Sound';
 import { Perform } from '../screens/Perform';
 import { Song } from '../screens/Song';
 import { FxSheet } from '../screens/FxSheet';
-import { fxSheetOpen, screen } from './nav';
+import { captureView, fxSheetOpen, screen } from './nav';
+import { Capture } from '../screens/Capture';
+import { Place } from '../screens/Place';
 import { ResetToast } from '../ui/ProjectSheet';
 import { useFxKeys, usePreventZoom, useShortcuts } from './shortcuts';
 import { DesktopApp } from './DesktopApp';
@@ -48,5 +50,12 @@ export function App() {
   useShortcuts();
   usePreventZoom();
   useFxKeys();
-  return useIsDesktop() ? <DesktopApp /> : <PhoneApp />;
+  const view = captureView.value;
+  return (
+    <>
+      {useIsDesktop() ? <DesktopApp /> : <PhoneApp />}
+      {view === 'capture' && <Capture />}
+      {view === 'place' && <Place />}
+    </>
+  );
 }

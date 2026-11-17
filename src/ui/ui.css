@@ -64,3 +64,9 @@ input[type='range'] { width: 100%; accent-color: var(--accent); height: 44px; ma
 @media (max-width: 419px) {
   .track-title { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 }
+
+/* Pattern page tabs (patterns longer than 16 steps). */
+.page-bar { display: flex; gap: 6px; flex: 0 0 auto; }
+.page-bar button { flex: 1; height: 30px; border-radius: 8px; border: 1px solid var(--border); background: transparent; color: var(--text-2); font-family: var(--font-mono); font-size: 12px; position: relative; }
+.page-bar button[aria-selected='true'] { background: var(--raised); color: var(--text); border-color: var(--text-2); }
+.page-bar button[data-playing]::after { content: ''; position: absolute; top: 5px; right: 6px; width: 6px; height: 6px; border-radius: 3px; background: var(--assist); }

@@ -5,6 +5,7 @@ import { audibleStep, audition } from '../engine/host';
 import { Sheet } from './Sheet';
 import { isMelodic } from '../store/defaults';
 import { MelodicGrid } from './MelodicGrid';
+import { gridPage } from './PageBar';
 
 const LONG_PRESS_MS = 400;
 const MOVE_CANCEL_PX = 8;
@@ -95,7 +96,8 @@ function DrumGrid() {
   return (
     <>
       <div class="step-grid">
-        {pat.steps.slice(0, 16).map((s, i) => {
+        {pat.steps.slice(gridPage.value * 16, gridPage.value * 16 + 16).map((s, k) => {
+          const i = gridPage.value * 16 + k;
           const on = s.t === 'hit';
           const vel = s.t === 'hit' ? s.vel : 0;
           const chance = s.t === 'hit' ? s.chance : undefined;

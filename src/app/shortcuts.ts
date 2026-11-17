@@ -2,6 +2,8 @@ import { useEffect } from 'preact/hooks';
 import { project, redo, selectedTrack, undo } from '../store/project';
 import { isPlayable } from '../store/defaults';
 import { togglePlay } from '../engine/host';
+import { captureView } from './nav';
+import { openCapture } from '../capture/session';
 import { pressFx, releaseFx, releaseAllFx } from './fxState';
 import { FX_IDS } from '../engine/fx/ids';
 
@@ -21,6 +23,7 @@ export function useShortcuts(): void {
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
       const mod = e.ctrlKey || e.metaKey;
+      if (captureView.value !== 'off') return; // Capture and Place own the keyboard (Escape, R)
       if (mod && e.key.toLowerCase() === 'z') {
         e.preventDefault();
         if (e.shiftKey) redo(); else undo();
@@ -36,7 +39,11 @@ export function useShortcuts(): void {
         e.preventDefault();
         stepTrack(e.shiftKey ? -1 : 1);
       }
-      // "/" (ask the assistant) and "R" (capture) arrive with Phases 5 and 6.
+      else if (!mod && !e.altKey && !e.shiftKey && e.key.toLowerCase() === 'r' && captureView.value === 'off') {
+        e.preventDefault();
+        openCapture();
+      }
+      // "/" (ask the assistant) arrives with Phase 6.
     };
     // Space on a focused button would also click it on keyup.
     const onKeyUp = (e: KeyboardEvent) => { if (e.code === 'Space') e.preventDefault(); };
@@ -57,7 +64,7 @@ export function useFxKeys(): void {
     const down = (e: KeyboardEvent) => {
       const el = e.target as HTMLElement | null;
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return;
-      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      if (e.ctrlKey || e.metaKey || e.altKey || e.repeat || captureView.value !== 'off') return;
       const fx = fxOf(e.code);
       if (!fx) return;
       e.preventDefault();

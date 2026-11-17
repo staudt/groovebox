@@ -121,5 +121,5 @@ function download(data: BlobPart, file: string, type: string): void {
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 10_000);
 }
-$('dlwav').onclick = () => wav && download(wav, `${name()}.wav`, 'audio/wav');
+$("dlwav").onclick = () => wav && download(wav.slice(), `${name()}.wav`, 'audio/wav');
 $('dljson').onclick = () => json && download(json, `${name()}.json`, 'application/json');

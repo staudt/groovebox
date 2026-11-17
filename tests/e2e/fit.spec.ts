@@ -86,3 +86,41 @@ for (const [w, h] of SIZES) {
     }
   });
 }
+
+// Capture and Place are full-screen overlays on phones; their content must fit too.
+const overlayOverflow = (page: Page) =>
+  page.evaluate(() => {
+    const cap = document.querySelector('.cap')!;
+    const doc = document.scrollingElement!;
+    return { cap: cap.scrollHeight - cap.clientHeight, doc: doc.scrollHeight - window.innerHeight };
+  });
+
+for (const [w, h] of SIZES) {
+  test.describe(`${w}x${h} capture`, () => {
+    test.use({ viewport: { width: w, height: h } });
+    test('Capture fits without scrolling', async ({ page }) => {
+      await page.goto('/');
+      await page.getByRole('button', { name: 'Capture', exact: true }).click();
+      await page.waitForTimeout(100);
+      const o = await overlayOverflow(page);
+      expect(o.cap, 'capture overflow (px)').toBeLessThanOrEqual(1);
+      expect(o.doc).toBeLessThanOrEqual(1);
+      expect(await minHeight(page, '.cap-rec, .cap-icon, .cap-small, .cap-src'), 'touch targets').toBeGreaterThanOrEqual(44);
+    });
+    test('Place fits without scrolling', async ({ page }) => {
+      await page.goto('/');
+      await page.evaluate(() => (window as unknown as { __groovebox: { place(n: unknown, bars: number): void } }).__groovebox.place([
+        { start: 0.0, end: 0.6, midi: 57 }, { start: 0.65, end: 1.2, midi: 60 }, { start: 1.3, end: 1.9, midi: 59 }, { start: 2.0, end: 2.5, midi: 52 },
+      ], 2));
+      await expect(page.getByRole('dialog', { name: 'Place a melody' })).toBeVisible();
+      await page.waitForTimeout(100);
+      const o = await overlayOverflow(page);
+      expect(o.cap, 'place overflow (px)').toBeLessThanOrEqual(1);
+      expect(o.doc).toBeLessThanOrEqual(1);
+      expect(await minHeight(page, '.pl-actions button, .pl-fitchip, .pl-mode, .cap-icon'), 'touch targets').toBeGreaterThanOrEqual(44);
+      // The Harmony card and both action buttons are fully on screen.
+      const box = await page.getByRole('button', { name: /^Place in/ }).boundingBox();
+      expect(box!.y + box!.height).toBeLessThanOrEqual(h);
+    });
+  });
+}

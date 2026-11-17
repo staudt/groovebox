@@ -71,10 +71,10 @@
 /* Aside: the Sound screen content in a flex column, like the phone's main area. */
 .dsk-sound { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 8px; }
 .dsk-sound .alg-fit { min-height: 90px; }
-.dsk-capture { opacity: 0.6; }
+.dsk-capture .btn { width: 100%; margin-top: 8px; }
+.dsk-capture kbd { font-family: var(--font-mono); font-size: 11px; opacity: 0.7; margin-left: 6px; }
 .dsk-capture .dsk-card-title { margin-bottom: 8px; }
-.dsk-capture p { margin: 8px 0 0; font-size: 12px; color: var(--muted); }
-.dsk-chips { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.dsk-chips { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .dsk-chips span { height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 10px; border: 1px solid var(--border); background: var(--raised); color: var(--text); font-size: 12px; }
 .dsk-hints { flex: 0 0 auto; display: flex; flex-wrap: wrap; gap: 6px; font-size: 11px; color: var(--muted); }
 .dsk-hints span { padding: 4px 8px; border: 1px solid var(--border); border-radius: 8px; }

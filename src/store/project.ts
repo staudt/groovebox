@@ -1,7 +1,7 @@
 // Project store: single source of truth on the main thread.
 // Every mutation goes through `apply(cmd)`, which records its inverse for undo/redo.
 import { batch, computed, signal } from '@preact/signals';
-import type { ChannelState, DrumParams, FmOpKey, FmPatch, FxMove, MixerState, PatternId, PlayMode, Scene, Section, PitchClass, Project, SamplerParams, ScaleName, Step, Track } from './types';
+import type { PatternLength, ChannelState, DrumParams, FmOpKey, FmPatch, FxMove, MixerState, PatternId, PlayMode, Scene, Section, PitchClass, Project, SamplerParams, ScaleName, Step, Track } from './types';
 import { BPM_MAX, BPM_MIN, SWING_MAX, SWING_MIN } from './types';
 import { defaultProject } from './defaults';
 
@@ -38,6 +38,8 @@ export type Command =
   | { type: 'setScale'; scale: ScaleName };
 
 export const project = signal<Project>(defaultProject());
+
+const legalLength = (n: number): PatternLength | null => (n === 16 || n === 32 || n === 64 ? n : null);
 export const selectedTrack = signal(0);
 export const currentPattern = signal<PatternId>('A');
 export const playing = signal(false);
@@ -135,7 +137,8 @@ export function reduce(p: Project, cmd: Command): [Project, Command] {
       const pat = p.tracks[cmd.track]!.patterns[cmd.pattern];
       const next = mapTrack(p, cmd.track, (t) => ({
         ...t,
-        patterns: { ...t.patterns, [cmd.pattern]: { ...pat, steps: cmd.steps.slice() } },
+        // A whole-pattern write may also change the length (Place writes 32 steps into a 16-step slot).
+        patterns: { ...t.patterns, [cmd.pattern]: { ...pat, length: legalLength(cmd.steps.length) ?? pat.length, steps: cmd.steps.slice() } },
       }));
       return [next, { ...cmd, steps: pat.steps }];
     }

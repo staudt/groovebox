@@ -5,6 +5,7 @@ import type { Midi } from '../store/types';
 import { midiToNote } from '../store/notation';
 import { inScale, pcName, scaleNotes, SCALES } from '../harmony/theory';
 import { allNotesOff, noteOff, noteOn } from '../engine/host';
+import { captureView } from '../app/nav';
 import { getOctave, octaveBase, setLastNote, setOctave, OCT_MAX, OCT_MIN } from './keysState';
 import './keys.css';
 
@@ -109,7 +110,7 @@ export function KeyboardDrawer(props: { initialLayout: Layout; trackIndex: numbe
   // Desktop musical typing.
   useEffect(() => {
     const down = (e: KeyboardEvent) => {
-      if (e.ctrlKey || e.metaKey || e.altKey || typingTarget(e.target)) return;
+      if (e.ctrlKey || e.metaKey || e.altKey || typingTarget(e.target) || captureView.value !== 'off') return;
       const ti = trackRef.current;
       const base = octaveBase(getOctave(ti));
       const semi = WHITE_KEYS[e.code] ?? BLACK_KEYS[e.code];

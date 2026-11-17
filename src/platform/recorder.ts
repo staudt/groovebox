@@ -25,8 +25,13 @@ export type RecordingSession = {
 
 let moduleLoaded = false;
 
+export type RecordingOptions = {
+  /** Attach extra nodes to the mic source (e.g. the live pitch tap). Returns a cleanup run at teardown. */
+  tap?: (ctx: AudioContext, src: MediaStreamAudioSourceNode) => (() => void) | Promise<() => void>;
+};
+
 /** Starts recording. Call from a user gesture. `onLimit` fires once at MAX_RECORD_SECONDS (the caller should stop). */
-export async function startRecording(onLimit?: () => void): Promise<RecordingSession> {
+export async function startRecording(onLimit?: () => void, opts: RecordingOptions = {}): Promise<RecordingSession> {
   if (!navigator.mediaDevices?.getUserMedia) throw new MicError('unsupported', 'Recording is not supported in this browser.');
   let stream: MediaStream;
   try {
@@ -52,6 +57,7 @@ export async function startRecording(onLimit?: () => void): Promise<RecordingSes
     src.connect(node);
     node.connect(mute);
     mute.connect(ctx.destination);
+    const untap = opts.tap ? await opts.tap(ctx, src) : null;
 
     const chunks: Float32Array[] = [];
     let frames = 0;
@@ -83,7 +89,7 @@ export async function startRecording(onLimit?: () => void): Promise<RecordingSes
     const teardown = () => {
       if (closed) return;
       closed = true;
-      try { src.disconnect(); node.disconnect(); mute.disconnect(); } catch { /* already gone */ }
+      try { untap?.(); src.disconnect(); node.disconnect(); mute.disconnect(); } catch { /* already gone */ }
       release();
     };
     return {

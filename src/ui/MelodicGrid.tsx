@@ -10,6 +10,8 @@ import './keys.css';
 
 const LONG_PRESS_MS = 400;
 const MOVE_CANCEL_PX = 8;
+import { gridPage } from './PageBar';
+
 const VISIBLE = 16;
 
 type Press = { i: number; x: number; y: number; timer: number; long: boolean; cancelled: boolean; drag: boolean };
@@ -106,7 +108,7 @@ export function MelodicGrid() {
     if (!p.cancelled || !isNoteStart(pat.steps[p.i])) return;
     const hit = document.elementFromPoint(e.clientX, e.clientY)?.closest<HTMLElement>('[data-i]');
     if (!hit) return;
-    const to = Math.min(VISIBLE - 1, Math.max(p.i, Number(hit.dataset['i'])));
+    const to = Math.min(gridPage.value * VISIBLE + VISIBLE - 1, Math.max(p.i, Number(hit.dataset['i'])));
     if (!p.drag && to === p.i) return;
     p.drag = true;
     const next = extendHold(pat.steps, p.i, to);
@@ -142,7 +144,8 @@ export function MelodicGrid() {
         onPointerCancel={onCancel}
         onLostPointerCapture={onCancel}
       >
-        {shown.slice(0, VISIBLE).map((s, i) => {
+        {shown.slice(gridPage.value * VISIBLE, gridPage.value * VISIBLE + VISIBLE).map((s, k) => {
+          const i = gridPage.value * VISIBLE + k;
           const on = s.t !== 'rest';
           const hold = s.t === 'hold';
           const beat = i % 4 === 0;

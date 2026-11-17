@@ -60,9 +60,9 @@ test('clicking a track name selects it; the sound panel follows; Shift+Tab goes 
   await expect(page.getByRole('button', { name: /^BASS/ })).toHaveAttribute('aria-pressed', 'true');
 });
 
-test('section chain falls back to a single loop chip; capture is disabled; no assistant panel', async ({ page }) => {
+test('section chain falls back to a single loop chip; capture card is active; no assistant panel', async ({ page }) => {
   await expect(page.getByLabel('Section chain')).toContainText('Loop · pattern A');
-  await expect(page.locator('.dsk-capture')).toContainText('Capture arrives in Phase 5');
+  await expect(page.locator('.dsk-capture').getByRole('button', { name: /^Capture/ })).toBeEnabled();
   await expect(page.getByText('Up next')).toHaveCount(0);
 });
 

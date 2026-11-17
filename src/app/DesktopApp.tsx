@@ -16,6 +16,7 @@ import { Perform } from '../screens/Perform';
 import { Song } from '../screens/Song';
 import { SectionChain } from '../ui/SectionChain';
 import { FxSheet } from '../screens/FxSheet';
+import { openCapture } from '../capture/session';
 import { fxSheetOpen, screen, type ScreenId } from './nav';
 import '../ui/desktop.css';
 
@@ -167,17 +168,17 @@ function KeysPanel() {
 
 function CapturePanel() {
   return (
-    <div class="dsk-card dsk-capture" aria-disabled="true">
+    <div class="dsk-card dsk-capture">
       <div class="dsk-card-title"><b>Capture a melody</b></div>
       <div class="dsk-chips">
-        {['Voice', 'Whistle', 'Guitar', 'Chords', 'MIDI'].map((c) => <span key={c}>{c}</span>)}
+        {['Voice', 'Whistle', 'Guitar', 'Chords'].map((c) => <span key={c}>{c}</span>)}
       </div>
-      <p>Capture arrives in Phase 5</p>
+      <button class="btn primary" onClick={openCapture}>Capture <kbd>R</kbd></button>
     </div>
   );
 }
 
-const SHORTCUTS: readonly [string, string][] = [['Space', 'play'], ['Tab', 'next track'], ['Shift+Tab', 'previous'], ['1–8', 'hold FX']];
+const SHORTCUTS: readonly [string, string][] = [['Space', 'play'], ['Tab', 'next track'], ['Shift+Tab', 'previous'], ['1–8', 'hold FX'], ['R', 'capture']];
 
 export function DesktopApp() {
   const screenId = screen.value;
