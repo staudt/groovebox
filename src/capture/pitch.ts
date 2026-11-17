@@ -21,13 +21,15 @@ export const CLARITY_MIN = 0.7;
 export const hzToMidi = (hz: number) => 69 + 12 * Math.log2(hz / 440);
 export const midiToHz = (m: number) => 440 * Math.pow(2, (m - 69) / 12);
 
-/**
- * Resamples to 16 kHz with a short windowed-sinc low-pass (good enough for pitch tracking;
- * whistles up to 4 kHz survive). Returns the input if it already is 16 kHz.
- */
+/** Resamples to 16 kHz (whistles up to 4 kHz survive). Returns the input if it already is 16 kHz. */
 export function resampleTo16k(x: Float32Array, rate: number): Float32Array {
-  if (rate === TRACK_RATE) return x;
-  const ratio = rate / TRACK_RATE;
+  return resample(x, rate, TRACK_RATE);
+}
+
+/** Band-limited resampling from `from` to `to` Hz (windowed sinc; fine for analysis, not for playback). */
+export function resample(x: Float32Array, from: number, to: number): Float32Array {
+  if (from === to) return x;
+  const ratio = from / to;
   const n = Math.floor(x.length / ratio);
   const out = new Float32Array(n);
   const cutoff = Math.min(1, 1 / ratio) * 0.9; // normalized to the input Nyquist
