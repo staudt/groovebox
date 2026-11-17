@@ -2,8 +2,9 @@
 import { Engine } from '../../src/engine/core';
 import type { EngineCommand, EngineEvent } from '../../src/engine/protocol';
 import { drumParams } from '../../src/store/defaults';
+import { projectToCommands } from '../../src/engine/sync';
 import { parsePattern } from '../../src/store/notation';
-import type { DrumModel, DrumParams, FmPatch, Project, SamplerParams } from '../../src/store/types';
+import type { DrumModel, DrumParams, FmPatch, PatternId, Project, SamplerParams } from '../../src/store/types';
 import { samplerParams } from '../../src/store/defaults';
 
 export type Render = { left: Float32Array; right: Float32Array; events: EngineEvent[]; engine: Engine; sr: number };
@@ -62,23 +63,10 @@ export function sparseOnsets(buf: Float32Array, sr: number, thr = 1e-3, gapMs = 
   return out;
 }
 
-/** Engine commands that load a whole project (pattern A of every track). */
-export function projectCommands(p: Project): EngineCommand[] {
-  const cmds: EngineCommand[] = [{ type: 'tempo', bpm: p.bpm, swing: p.swing }];
-  p.tracks.forEach((t, i) => {
-    cmds.push({ type: 'trackKind', track: i, kind: t.kind });
-    if (t.kind === 'sampler') cmds.push({ type: 'samplerParams', track: i, params: t.params as SamplerParams });
-    cmds.push({ type: 'sends', track: i, a: t.macros[3].value, b: 0 });
-    if (t.kind === 'drum') cmds.push({ type: 'drumParams', track: i, params: t.params as DrumParams });
-    if (t.kind === 'fm') {
-      cmds.push({ type: 'fmPatch', track: i, patch: t.params as FmPatch });
-      cmds.push({ type: 'macros', track: i, values: [t.macros[0].value, t.macros[1].value, t.macros[2].value, t.macros[3].value] });
-    }
-    cmds.push({ type: 'pattern', track: i, pattern: t.patterns.A });
-  });
-  return cmds;
+/** Engine commands that load a whole project (the same translation the app uses). */
+export function projectCommands(p: Project, current: PatternId = 'A'): EngineCommand[] {
+  return projectToCommands(p, current);
 }
-
 
 /** Commands to set one FM track with a patch and a pattern. */
 export function fmTrack(track: number, patch: FmPatch, pattern: string): EngineCommand[] {

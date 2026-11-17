@@ -20,6 +20,10 @@ const VOICES_PER_TRACK = 3;
 const FM_POLY = 8;
 const FM_VOICES = FM_POLY + 2;
 const MAX_CHORD = 6;
+const SLOTS = 4;
+const STEPS_PER_BAR = 16;
+const MAX_SECTIONS = 64;
+const MUTE_LEAD_S = 0.01;
 
 const KIND_OFF = 0;
 const KIND_DRUM = 1;
@@ -34,6 +38,7 @@ const EV_OFF = 2;
 const EV_FX_ON = 3;
 const EV_FX_OFF = 4;
 const EV_FX_XY = 5;
+const EV_MUTE = 6;
 const LANE_MAX = 256;
 const QUEUE = 256;
 const METER_HZ = 30;
@@ -49,13 +54,24 @@ const ST_HOLD = 4;
 class TrackState {
   kind = KIND_OFF;
   mute = false;
-  length = 16;
-  readonly type = new Uint8Array(MAX_STEPS);
-  readonly vel = new Float32Array(MAX_STEPS);
-  readonly chance = new Float32Array(MAX_STEPS).fill(1);
-  readonly nudge = new Float32Array(MAX_STEPS);
-  readonly notes = new Int16Array(MAX_STEPS * MAX_CHORD);
-  readonly noteCount = new Uint8Array(MAX_STEPS);
+  /** Pattern data for the 4 slots (A-D) back to back: slot k uses indices [k * MAX_STEPS, (k+1) * MAX_STEPS). */
+  readonly lengths = new Int32Array(SLOTS).fill(16);
+  readonly type = new Uint8Array(MAX_STEPS * SLOTS);
+  readonly vel = new Float32Array(MAX_STEPS * SLOTS);
+  readonly chance = new Float32Array(MAX_STEPS * SLOTS).fill(1);
+  readonly nudge = new Float32Array(MAX_STEPS * SLOTS);
+  readonly notes = new Int16Array(MAX_STEPS * SLOTS * MAX_CHORD);
+  readonly noteCount = new Uint8Array(MAX_STEPS * SLOTS);
+  // Mixer channel.
+  fader = 1; // gain multiplier (0.8 on the UI fader = 1)
+  panL = 1;
+  panR = 1;
+  duck = 0;
+  mixSolo = false;
+  /** Mute to apply at the next bar line (-1 = none). */
+  pendingMute = -1;
+  /** Samples left of fast (1.5 ms) gain smoothing after a bar-quantized mute. */
+  fastFade = 0;
   readonly fm = new FmParams();
   readonly fmVoices: FmVoice[] = [];
   fmAge = 0;
@@ -86,6 +102,7 @@ export class Engine {
   private limiter: Limiter;
   private rng = new Noise(0x9e3779b9);
   private smoothK: number;
+  private readonly smoothFastK: number;
 
   // Transport and clock. Song position (in 16th steps) is linear in frames between tempo changes:
   // pos(frame) = anchorStep + (frame - anchorFrame) / samplesPerStep. Re-anchored only on tempo change,
@@ -142,6 +159,28 @@ export class Engine {
   private readonly fxL = new Float32Array(MAX_BLOCK);
   private readonly fxR = new Float32Array(MAX_BLOCK);
   private soloTrack = -1;
+  // Patterns: loop mode plays `activeSlot` on every track (switches wait for the next bar);
+  // song mode plays the sections in order, each choosing a slot (or silence) per track.
+  private activeSlot = 0;
+  private pendingSlot = -1;
+  private slotStart = 0; // step at which activeSlot started (patterns longer than a bar start from their top)
+  private songOn = false;
+  private songCount = 0;
+  private songSteps = 0;
+  private readonly songBars = new Int32Array(MAX_SECTIONS);
+  private readonly songSlots = new Int8Array(MAX_SECTIONS * MAX_TRACKS);
+  // Scratch outputs of locate() (no allocation per step).
+  private locSection = 0;
+  private locStart = 0; // first step of the current section (song) or slot (loop)
+  // Sidechain ducking keyed from one track's hits.
+  private duckSource = 0;
+  private duckEnv = 0;
+  private duckAttacking = false;
+  private duckRelK = 0.999;
+  private duckAtkK = 0.5;
+  private readonly duckHits = new Int32Array(32);
+  private duckHitCount = 0;
+  private readonly duckBuf = new Float32Array(MAX_BLOCK);
   private masterPeak = 0;
   private meterFrames = 0;
   private readonly meterEvery: number;
@@ -154,6 +193,7 @@ export class Engine {
     this.delay = new PingPongDelay(sampleRate);
     this.punch = new PunchChain(sampleRate);
     this.smoothK = 1 - Math.exp(-1 / (0.01 * sampleRate)); // ~10 ms parameter smoothing
+    this.smoothFastK = 1 - Math.exp(-1 / (0.0015 * sampleRate)); // bar-quantized mutes
     this.meterEvery = Math.round(sampleRate / METER_HZ);
     for (let t = 0; t < MAX_TRACKS; t++) {
       const ts = new TrackState();
@@ -191,6 +231,11 @@ export class Engine {
           this.anchorFrame = this.frame;
           this.anchorStep = 0;
           this.nextStep = 0;
+          this.slotStart = 0;
+          if (this.pendingSlot >= 0) {
+            this.activeSlot = this.pendingSlot;
+            this.pendingSlot = -1;
+          }
         } else if (!cmd.playing && this.playing) {
           this.playing = false;
           this.dropSequenced();
@@ -224,15 +269,18 @@ export class Engine {
       case 'pattern': {
         const ts = this.tracks[cmd.track];
         if (!ts) return;
-        ts.length = Math.min(MAX_STEPS, cmd.pattern.length);
-        for (let i = 0; i < MAX_STEPS; i++) {
-          const s = cmd.pattern.steps[i];
+        const slot = Math.min(SLOTS - 1, Math.max(0, cmd.slot ?? 0));
+        const len = Math.min(MAX_STEPS, cmd.pattern.length);
+        ts.lengths[slot] = len;
+        for (let j = 0; j < MAX_STEPS; j++) {
+          const s = cmd.pattern.steps[j];
+          const i = slot * MAX_STEPS + j;
           ts.type[i] = ST_REST;
           ts.vel[i] = 0;
           ts.chance[i] = 1;
           ts.nudge[i] = 0;
           ts.noteCount[i] = 0;
-          if (!s || i >= ts.length) continue;
+          if (!s || j >= len) continue;
           if (s.t === 'hit' || s.t === 'note') {
             ts.type[i] = s.t === 'hit' ? ST_HIT : ST_NOTE;
             ts.vel[i] = s.vel;
@@ -355,8 +403,12 @@ export class Engine {
       }
       case 'mute': {
         const ts = this.tracks[cmd.track];
-        if (ts) {
+        if (!ts) return;
+        if (cmd.atBar && this.playing) {
+          ts.pendingMute = cmd.mute ? 1 : 0;
+        } else {
           ts.mute = cmd.mute;
+          ts.pendingMute = -1;
           this.snapGainIfSilent(ts);
         }
         break;
@@ -409,6 +461,58 @@ export class Engine {
         if (k >= 0) this.punch.setXY(k, cmd.x, cmd.y);
         break;
       }
+      case 'patternSelect': {
+        const slot = Math.min(SLOTS - 1, Math.max(0, cmd.slot));
+        if (this.playing && cmd.quantize) this.pendingSlot = slot;
+        else {
+          this.activeSlot = slot;
+          this.pendingSlot = -1;
+          this.slotStart = this.nextStep;
+        }
+        break;
+      }
+      case 'song': {
+        this.songOn = cmd.enabled && cmd.sections.length > 0;
+        const n = Math.min(MAX_SECTIONS, cmd.sections.length);
+        let total = 0;
+        for (let k = 0; k < n; k++) {
+          const sec = cmd.sections[k]!;
+          this.songBars[k] = Math.max(1, Math.round(sec.bars));
+          total += this.songBars[k]!;
+          for (let t = 0; t < MAX_TRACKS; t++) this.songSlots[k * MAX_TRACKS + t] = sec.slots[t] ?? -1;
+        }
+        this.songCount = n;
+        this.songSteps = total * STEPS_PER_BAR;
+        break;
+      }
+      case 'channel': {
+        const ts = this.tracks[cmd.track];
+        if (!ts) return;
+        const lv = Math.min(1, Math.max(0, cmd.level));
+        ts.fader = (lv / 0.8) * (lv / 0.8);
+        const pan = Math.min(1, Math.max(-1, cmd.pan));
+        ts.panL = Math.min(1, 1 - pan); // balance law: center = unity on both sides
+        ts.panR = Math.min(1, 1 + pan);
+        ts.sendB = Math.min(1, Math.max(0, cmd.sendB));
+        ts.duck = Math.min(1, Math.max(0, cmd.duck));
+        const soloChanged = ts.mixSolo !== cmd.solo;
+        ts.mixSolo = cmd.solo;
+        // A solo change affects every track's gain; silent tracks jump straight to their new target.
+        if (soloChanged) for (let t = 0; t < MAX_TRACKS; t++) this.snapGainIfSilent(this.tracks[t]!);
+        else this.snapGainIfSilent(ts);
+        break;
+      }
+      case 'duck': {
+        this.duckSource = Math.min(MAX_TRACKS - 1, Math.max(0, cmd.source));
+        // Release 40 ms .. 1 s: about how long the pump takes to come back (time constant = release / 2.5).
+        const rel = 0.04 * Math.pow(25, Math.min(1, Math.max(0, cmd.release)));
+        this.duckRelK = Math.exp(-2.5 / (rel * this.sampleRate));
+        this.duckAtkK = 1 - Math.exp(-1 / (0.002 * this.sampleRate));
+        break;
+      }
+      case 'master':
+        this.masterGain = Math.min(1, Math.max(0, cmd.gain));
+        break;
       case 'solo':
         this.soloTrack = cmd.track;
         for (let t = 0; t < MAX_TRACKS; t++) this.snapGainIfSilent(this.tracks[t]!);
@@ -420,8 +524,12 @@ export class Engine {
   }
 
   private targetGain(ts: TrackState): number {
-    const soloed = this.soloTrack >= 0 && this.tracks[this.soloTrack] !== ts;
-    return ts.kind !== KIND_OFF && !ts.mute && !soloed ? ts.level * ts.level : 0;
+    // Mixer solos and the monitoring solo (the Solo button) combine: when any is on, only soloed tracks play.
+    let anySolo = this.soloTrack >= 0;
+    for (let t = 0; t < MAX_TRACKS && !anySolo; t++) if (this.tracks[t]!.mixSolo) anySolo = true;
+    const soloed = ts.mixSolo || (this.soloTrack >= 0 && this.tracks[this.soloTrack] === ts);
+    if (ts.kind === KIND_OFF || ts.mute || (anySolo && !soloed)) return 0;
+    return ts.level * ts.level * ts.fader;
   }
 
   /** Gain smoothing only matters while sound is playing; a silent track jumps straight to its target. */
@@ -512,6 +620,31 @@ export class Engine {
     return (step & 1) === 1 ? (2 * this.swing) / 100 - 1 : 0;
   }
 
+  /**
+   * Song position of step `s`: sets locSection and locStart (first step of the section, or of the
+   * loop slot) — no allocation. Returns false in song mode when the song is empty.
+   */
+  private locate(s: number): boolean {
+    if (!this.songOn) {
+      this.locSection = -1;
+      this.locStart = this.slotStart;
+      return true;
+    }
+    if (this.songSteps <= 0) return false;
+    const pos = s % this.songSteps;
+    let acc = 0;
+    for (let k = 0; k < this.songCount; k++) {
+      const len = this.songBars[k]! * STEPS_PER_BAR;
+      if (pos < acc + len) {
+        this.locSection = k;
+        this.locStart = s - (pos - acc);
+        return true;
+      }
+      acc += len;
+    }
+    return false;
+  }
+
   /** Enqueue all steps whose (earliest possible) time falls before the end of this block. */
   private schedule(blockStart: number, frames: number): void {
     const posEnd = this.posAt(blockStart + frames);
@@ -519,11 +652,42 @@ export class Engine {
       const s = this.nextStep;
       const swing = this.swingDelay(s);
       const gridFrame = this.frameAt(s + swing);
-      this.emit({ type: 'step', step: s, time: this.timeOf(Math.max(gridFrame, blockStart)) });
+      const time = this.timeOf(Math.max(gridFrame, blockStart));
+      // Bar line: queued pattern switch (loop mode), song progress (song mode).
+      if (s % STEPS_PER_BAR === 0) {
+        for (let t = 0; t < MAX_TRACKS; t++) {
+          const ts = this.tracks[t]!;
+          if (ts.pendingMute >= 0) {
+            // A fast fade that starts MUTE_LEAD_S before the bar line, so the bar starts fully
+            // muted (or fully open): the downbeat hit is never half-heard.
+            this.enqueue(Math.max(blockStart, this.frameAt(s) - MUTE_LEAD_S * this.sampleRate), EV_MUTE, t, ts.pendingMute, 0, 0, 0);
+            ts.pendingMute = -1;
+          }
+        }
+        if (!this.songOn && this.pendingSlot >= 0) {
+          this.activeSlot = this.pendingSlot;
+          this.pendingSlot = -1;
+          this.slotStart = s;
+          this.emit({ type: 'pattern', slot: this.activeSlot, time });
+        }
+      }
+      this.emit({ type: 'step', step: s, time });
+      if (!this.locate(s)) {
+        this.nextStep++;
+        continue;
+      }
+      if (this.songOn && s % STEPS_PER_BAR === 0) {
+        this.emit({ type: 'song', section: this.locSection, bar: Math.floor((s - this.locStart) / STEPS_PER_BAR), time });
+      }
       for (let t = 0; t < MAX_TRACKS; t++) {
         const ts = this.tracks[t]!;
         if (ts.kind === KIND_OFF) continue;
-        const i = s % ts.length;
+        const slot = this.songOn ? this.songSlots[this.locSection * MAX_TRACKS + t]! : this.activeSlot;
+        if (slot < 0) continue; // silent in this section
+        const len = ts.lengths[slot]!;
+        const base = slot * MAX_STEPS;
+        const local = (s - this.locStart) % len;
+        const i = base + local;
         const type = ts.type[i]!;
         if (type !== ST_HIT && type !== ST_NOTE && type !== ST_CHORD) continue;
         const ch = ts.chance[i]!;
@@ -539,9 +703,9 @@ export class Engine {
           continue;
         }
         if (type === ST_HIT) continue;
-        // FM: the note lasts until the end of the holds that follow it (legato across holds).
+        // Melodic: the note lasts until the end of the holds that follow it (legato across holds).
         let holds = 0;
-        while (holds < ts.length - 1 && ts.type[(i + 1 + holds) % ts.length] === ST_HOLD) holds++;
+        while (holds < len - 1 && ts.type[base + ((local + 1 + holds) % len)] === ST_HOLD) holds++;
         const end = s + 1 + holds;
         const offAt = Math.max(at + 1, this.frameAt(end + this.swingDelay(end)));
         const count = ts.noteCount[i]!;
@@ -612,6 +776,14 @@ export class Engine {
 
   private dispatch(i: number): void {
     const type = this.qType[i]!;
+    if (type === EV_MUTE) {
+      const mt = this.tracks[this.qTrack[i]!];
+      if (mt) {
+        mt.mute = this.qVel[i] === 1;
+        mt.fastFade = Math.ceil(MUTE_LEAD_S * 2 * this.sampleRate);
+      }
+      return;
+    }
     if (type >= EV_FX_ON) {
       this.dispatchFx(type, this.qNote[i]!, this.qTrack[i]!, this.qVel[i]!, this.qY[i]!, this.qFrame[i]!);
       return;
@@ -744,6 +916,11 @@ export class Engine {
       const off = Math.max(cursor, Math.min(n, Math.round(bestF - blockStart)));
       this.renderVoices(cursor, off);
       cursor = off;
+      // Sidechain key: remember where the source track's hits/notes start in this block.
+      const qt = this.qType[best]!;
+      if (this.qTrack[best] === this.duckSource && (qt === EV_HIT || qt === EV_ON) && this.duckHitCount < this.duckHits.length) {
+        this.duckHits[this.duckHitCount++] = off;
+      }
       this.dispatch(best);
       this.removeAt(best);
     }
@@ -765,6 +942,28 @@ export class Engine {
       this.fxR.fill(0, 0, n);
     }
     const k = this.smoothK;
+    // Sidechain envelope for this block: fast attack at each key hit, exponential release.
+    const duck = this.duckBuf;
+    {
+      let env = this.duckEnv;
+      let atk = this.duckAttacking;
+      let h = 0;
+      for (let i = 0; i < n; i++) {
+        while (h < this.duckHitCount && this.duckHits[h]! <= i) {
+          atk = true;
+          h++;
+        }
+        if (atk) {
+          env += (1 - env) * this.duckAtkK;
+          if (env > 0.98) atk = false;
+        } else env *= this.duckRelK;
+        duck[i] = env;
+      }
+      if (env < 1e-6) env = 0;
+      this.duckEnv = env;
+      this.duckAttacking = atk;
+      this.duckHitCount = 0;
+    }
     for (let t = 0; t < MAX_TRACKS; t++) {
       const ts = this.tracks[t]!;
       const target = this.targetGain(ts);
@@ -782,15 +981,22 @@ export class Engine {
       let b = ts.curB;
       const ta = ts.sendA;
       const tb = ts.sendB;
+      const pl = ts.panL;
+      const pr = ts.panR;
+      const dk = t === this.duckSource ? 0 : ts.duck;
+      const kFast = this.smoothFastK;
       for (let i = 0; i < n; i++) {
-        g += (target - g) * k;
+        if (ts.fastFade > 0) {
+          ts.fastFade--;
+          g += (target - g) * kFast;
+        } else g += (target - g) * k;
         a += (ta - a) * k;
         b += (tb - b) * k;
-        const y = softClip(buf[i]!, drive) * g;
+        const y = softClip(buf[i]!, drive) * g * (dk > 0 ? 1 - dk * duck[i]! : 1);
         const m = Math.abs(y);
         if (m > pk) pk = m;
-        outL[i]! += y;
-        outR[i]! += y;
+        outL[i]! += y * pl;
+        outR[i]! += y * pr;
         revIn[i]! += y * a;
         delIn[i]! += y * b;
       }

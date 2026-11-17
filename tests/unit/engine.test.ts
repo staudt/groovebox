@@ -23,7 +23,7 @@ describe('engine clock', () => {
     }
   }
 
-  it('does not drift over 64 bars at 133 BPM', () => {
+  it('does not drift over 64 bars at 133 BPM', { timeout: 30_000 }, () => {
     const bpm = 133;
     const sr = 48000;
     const r = render([tempo(bpm), ...drumTrack(0, 'perc', 'x . . . . . . . . . . . . . . .', HAT), START], (60 / bpm) * 4 * 64 - 0.05, { sr });

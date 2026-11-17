@@ -4,9 +4,12 @@ import { effect } from '@preact/signals';
 import workletUrl from './worklet.ts?worker&url';
 import type { EngineCommand, EngineEvent } from './protocol';
 import type { FxId } from './fx/ids';
-import { currentPattern, playing, project, selectedTrack, soloSelected } from '../store/project';
-import type { DrumParams, FmPatch, Project, SamplerParams, Track } from '../store/types';
+import { type Command, apply, currentPattern, playing, project, selectedTrack, soloSelected } from '../store/project';
+import type { DrumParams, FmPatch, Project, SamplerParams, Scene, Track } from '../store/types';
 import { getSample } from '../store/samples';
+import { mixerCommands, projectToCommands, slotOf, songCommand, trackSoundCommands } from './sync';
+import { signal } from '@preact/signals';
+import { PATTERN_IDS, type PatternId } from '../store/types';
 import { ensureRunning, getAudioContext } from '../platform/audio';
 
 let node: AudioWorkletNode | null = null;
@@ -29,8 +32,17 @@ function clearSteps(): void {
 }
 
 function onEvent(ev: EngineEvent): void {
-  if (ev.type === 'step' && ev.step < 0) {
+  if (ev.type === 'pattern') {
+    queuedPattern.value = null;
+  } else if (ev.type === 'song') {
+    // Delay the UI update until the bar is actually heard.
+    const ctx = getAudioContext();
+    const wait = Math.max(0, (ev.time - ctx.currentTime - (ctx.outputLatency || 0)) * 1000);
+    setTimeout(() => (songPos.value = playing.peek() ? { section: ev.section, bar: ev.bar } : null), wait);
+  } else if (ev.type === 'step' && ev.step < 0) {
     clearSteps();
+    songPos.value = null;
+    queuedPattern.value = null;
   } else if (ev.type === 'step') {
     stepTimes[stepWrite] = ev.time;
     stepIdx[stepWrite] = ev.step;
@@ -133,17 +145,35 @@ function postParams(t: Track, i: number): void {
 }
 
 function syncAll(p: Project): void {
-  post({ type: 'tempo', bpm: p.bpm, swing: p.swing });
-  post({ type: 'fxLane', moves: p.fxMoves?.[currentPattern.peek()] ?? [], length: 16 });
-  p.tracks.forEach((t, i) => {
-    post({ type: 'trackKind', track: i, kind: engineKind(t) });
-    postParams(t, i);
-    if (t.kind === 'fm' || t.kind === 'sampler') post({ type: 'macros', track: i, values: macroValues(t) });
-    post({ type: 'sends', track: i, a: t.macros[3].value, b: 0 });
-    post({ type: 'pattern', track: i, pattern: t.patterns[currentPattern.value] });
-    post({ type: 'mute', track: i, mute: t.mute });
+  for (const c of projectToCommands(p, currentPattern.peek())) post(c);
+  p.tracks.forEach((t) => {
+    if (t.kind === 'sampler') void ensureSample((t.params as SamplerParams).sampleId);
   });
 }
+
+/** Loop mode: pattern waiting for the next bar after a switch while playing (null = none). */
+export const queuedPattern = signal<PatternId | null>(null);
+/** Song mode: section index and bar (0-based within it) currently heard; null when stopped. */
+export const songPos = signal<{ section: number; bar: number } | null>(null);
+
+/**
+ * Recalls a scene: applies its mute set as one undoable step; while playing the engine switches
+ * the mutes on the next bar so the change lands in time.
+ */
+export function recallScene(scene: Scene): void {
+  const p = project.peek();
+  const cmds: Command[] = [];
+  p.tracks.forEach((t, i) => {
+    const mute = scene.mutes[t.id] ?? false;
+    if (mute !== t.mute) cmds.push({ type: 'setMute', track: i, mute });
+  });
+  if (!cmds.length) return;
+  muteAtBar = true;
+  apply(cmds);
+}
+
+/** Set by recallScene: the next mute changes take effect on the next bar (while playing). */
+let muteAtBar = false;
 
 /** Diff-based sync: only sends what changed (objects are immutable, so identity checks suffice). */
 function startSync(): void {
@@ -156,17 +186,35 @@ function startSync(): void {
       syncAll(p);
     } else {
       if (p.bpm !== prev.bpm || p.swing !== prev.swing) post({ type: 'tempo', bpm: p.bpm, swing: p.swing });
+      if (p.mixer.master !== prev.mixer.master || p.mixer.duckSource !== prev.mixer.duckSource || p.mixer.duckRelease !== prev.mixer.duckRelease) {
+        for (const c of mixerCommands(p)) post(c);
+      }
+      if (pat !== prevPat) {
+        // Loop mode: switch all tracks to the new pattern, on the next bar while playing.
+        post({ type: 'patternSelect', slot: slotOf(pat), quantize: playing.peek() });
+        if (playing.peek()) queuedPattern.value = pat;
+      }
       const lane = p.fxMoves?.[pat];
       if (lane !== prev.fxMoves?.[prevPat] || pat !== prevPat) post({ type: 'fxLane', moves: lane ?? [], length: 16 });
+      if (p.sections !== prev.sections || p.playMode !== prev.playMode) post(songCommand(p));
+      const quantizeMutes = muteAtBar && playing.peek();
+      muteAtBar = false;
       p.tracks.forEach((t, i) => {
         const o = prev!.tracks[i]!;
-        if (t === o && pat === prevPat) return;
-        if (t.kind !== o.kind) post({ type: 'trackKind', track: i, kind: engineKind(t) });
-        if (t.params !== o.params) postParams(t, i);
-        if (t.macros !== o.macros && (t.kind === 'fm' || t.kind === 'sampler')) post({ type: 'macros', track: i, values: macroValues(t) });
-        if (t.macros[3].value !== o.macros[3].value) post({ type: 'sends', track: i, a: t.macros[3].value, b: 0 });
-        if (t.patterns[pat] !== o.patterns[prevPat] || pat !== prevPat) post({ type: 'pattern', track: i, pattern: t.patterns[pat] });
-        if (t.mute !== o.mute) post({ type: 'mute', track: i, mute: t.mute });
+        const ch = p.mixer.tracks[i]!;
+        const och = prev!.mixer.tracks[i]!;
+        if (t.kind !== o.kind || t.params !== o.params || t.macros !== o.macros) {
+          for (const c of trackSoundCommands(t, i)) post(c);
+          if (t.kind === 'sampler') void ensureSample((t.params as SamplerParams).sampleId);
+        }
+        if (ch !== och || t.macros[3].value !== o.macros[3].value) {
+          post({ type: 'channel', track: i, level: ch.level, pan: ch.pan, sendB: ch.sendB, duck: ch.duck, solo: ch.solo });
+          post({ type: 'sends', track: i, a: t.macros[3].value, b: ch.sendB });
+        }
+        if (t.patterns !== o.patterns) {
+          for (const id of PATTERN_IDS) if (t.patterns[id] !== o.patterns[id]) post({ type: 'pattern', track: i, pattern: t.patterns[id], slot: slotOf(id) });
+        }
+        if (t.mute !== o.mute) post({ type: 'mute', track: i, mute: t.mute, ...(quantizeMutes ? { atBar: true } : {}) });
       });
     }
     prev = p;
