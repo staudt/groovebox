@@ -12,6 +12,7 @@ import { FxSheet } from '../screens/FxSheet';
 import { fxSheetOpen, screen } from './nav';
 import { pressFx, releaseFx, releaseAllFx } from './fxState';
 import { FX_IDS } from '../engine/fx/ids';
+import { ResetToast } from '../ui/ProjectSheet';
 
 function nextPlayable(): void {
   const tracks = project.value.tracks;
@@ -104,6 +105,7 @@ export function App() {
       <main class="app-main">
         {screen.value === 'sound' ? <Sound /> : screen.value === 'perform' ? <Perform /> : <Play />}
       </main>
+      <ResetToast />
       <BottomNav />
       {fxSheetOpen.value && <FxSheet />}
     </div>

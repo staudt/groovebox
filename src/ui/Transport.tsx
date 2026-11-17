@@ -3,15 +3,24 @@ import { apply, playing, project } from '../store/project';
 import { BPM_MAX, BPM_MIN, SWING_MAX, SWING_MIN } from '../store/types';
 import { togglePlay } from '../engine/host';
 import { Sheet } from './Sheet';
+import { ProjectSheet } from './ProjectSheet';
 
 const box = { border: '1px solid var(--border)', background: 'var(--raised)', display: 'flex', alignItems: 'center', justifyContent: 'center' } as const;
 
 export function Transport() {
   const [open, setOpen] = useState(false);
+  const [projOpen, setProjOpen] = useState(false);
   const p = project.value;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', height: '44px' }}>
-      <span style={{ fontSize: '16px', fontWeight: 700, flexGrow: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+      <button
+        aria-label={`Project: ${p.name}`}
+        onClick={() => setProjOpen(true)}
+        style={{ fontSize: '16px', fontWeight: 700, flexGrow: 1, minWidth: 0, height: '44px', padding: 0, border: 'none', background: 'transparent', color: 'var(--text)', textAlign: 'left', display: 'flex', alignItems: 'center', gap: '4px' }}
+      >
+        <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.name}</span>
+        <span aria-hidden="true" style={{ fontSize: '11px', color: 'var(--muted)' }}>▾</span>
+      </button>
       <button onClick={() => setOpen(true)} style={{ ...box, height: '44px', padding: '0 10px', borderRadius: '10px', fontFamily: 'var(--font-mono)', fontSize: '13px' }}>{p.bpm} BPM</button>
       <button aria-label="Record" disabled title="Recording arrives in a later phase" style={{ ...box, width: '44px', height: '44px', borderRadius: '12px', opacity: 0.4 }}>
         <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="6" fill="var(--fx)" /></svg>
@@ -22,6 +31,7 @@ export function Transport() {
         </svg>
       </button>
       {open && <TempoSheet onClose={() => setOpen(false)} />}
+      {projOpen && <ProjectSheet onClose={() => setProjOpen(false)} />}
     </div>
   );
 }

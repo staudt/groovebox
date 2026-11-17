@@ -22,6 +22,7 @@
 .sheet { width: 100%; background: var(--surface); border-top: 1px solid var(--border); border-radius: 16px 16px 0 0; padding: 16px 16px max(16px, env(safe-area-inset-bottom)) 16px; display: flex; flex-direction: column; gap: 14px; }
 .sheet h3 { margin: 0; font-size: 15px; }
 .row { display: flex; align-items: center; gap: 10px; }
+.col { display: flex; flex-direction: column; }
 .btn { height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--border); background: var(--raised); color: var(--text); font-size: 14px; }
 .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--ground); font-weight: 700; }
 .btn.square { width: 44px; padding: 0; font-size: 20px; }
@@ -37,3 +38,11 @@ input[type='range'] { width: 100%; accent-color: var(--accent); height: 44px; ma
 
 /* Play step grid: the one elastic region of the Play screen (4 rows share what is left, 40 px minimum). */
 .step-grid { flex: 1 1 auto; min-height: 184px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-template-rows: repeat(4, minmax(40px, 1fr)); gap: 8px; }
+
+/* "New project · Undo" toast, above the bottom nav. */
+.reset-toast {
+  position: absolute; left: 16px; right: 16px; bottom: 80px; z-index: 30;
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  padding: 8px 8px 8px 16px; border-radius: 12px; background: var(--raised); border: 1px solid var(--border);
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.45); font-size: 14px;
+}

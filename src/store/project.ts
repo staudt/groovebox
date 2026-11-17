@@ -22,6 +22,9 @@ export type Command =
   | { type: 'setSampler'; track: number; patch: Partial<Omit<SamplerParams, 'kind'>> }
   /** Replace the recorded FX moves of one pattern slot (a whole recording pass, or Clear). */
   | { type: 'setFxMoves'; pattern: PatternId; moves: FxMove[] }
+  | { type: 'setName'; name: string }
+  /** Replace the whole project (New project). The inverse brings the old one back. */
+  | { type: 'replaceProject'; project: Project }
   | { type: 'setKey'; key: PitchClass }
   | { type: 'setScale'; scale: ScaleName };
 
@@ -188,6 +191,12 @@ export function reduce(p: Project, cmd: Command): [Project, Command] {
       const moves = cmd.moves.slice(0, MAX_FX_MOVES).sort((a, b) => a.at - b.at);
       return [{ ...p, fxMoves: { ...p.fxMoves, [cmd.pattern]: moves } }, { ...cmd, moves: prev }];
     }
+    case 'setName': {
+      const name = cmd.name.trim().slice(0, 40) || 'Untitled groove';
+      return [{ ...p, name }, { type: 'setName', name: p.name }];
+    }
+    case 'replaceProject':
+      return [cmd.project, { type: 'replaceProject', project: p }];
     case 'setKey':
       return [{ ...p, key: (((Math.round(cmd.key) % 12) + 12) % 12) as PitchClass }, { type: 'setKey', key: p.key }];
     case 'setScale':
