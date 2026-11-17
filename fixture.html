@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Groovebox capture fixture recorder</title>
+    <style>
+      body { background: #121316; color: #ECEDEF; font: 15px/1.5 system-ui, sans-serif; padding: 16px; max-width: 560px; margin: 0 auto; }
+      h1 { font-size: 20px; }
+      button, select { font: inherit; min-height: 44px; padding: 0 14px; border-radius: 10px; border: 1px solid #2E313A; background: #1E2026; color: #ECEDEF; }
+      button.primary { background: #FFB547; color: #121316; border: none; font-weight: 700; }
+      button:disabled { opacity: 0.4; }
+      .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
+      .muted { color: #9A9DA6; font-size: 13px; }
+      pre { background: #1A1C21; border: 1px solid #2E313A; border-radius: 10px; padding: 12px; white-space: pre-wrap; font: 13px/1.5 ui-monospace, monospace; }
+      .big { font-size: 28px; font-weight: 700; }
+    </style>
+  </head>
+  <body>
+    <h1>Capture fixture recorder</h1>
+    <p class="muted">Records test material for the melody capture. Listen to the reference, then press Record: after a one-bar count-in, repeat it in time with the clicks. Use headphones so the clicks don't end up in the recording. The page scores the take right away; download both files and put them in <code>tests/fixtures/capture/</code>.</p>
+    <div class="row">
+      <select id="kind" aria-label="What you record">
+        <option value="voice-da">Voice, sing "da"</option>
+        <option value="hum">Hum</option>
+        <option value="whistle">Whistle</option>
+        <option value="guitar">Guitar, single notes</option>
+        <option value="chords">Guitar, strummed chords</option>
+      </select>
+      <select id="octave" aria-label="Octave">
+        <option value="-1">Low voice (A3)</option>
+        <option value="0">High voice (A4)</option>
+      </select>
+    </div>
+    <pre id="ref"></pre>
+    <div class="row">
+      <button id="listen">Listen</button>
+      <button id="record" class="primary">Record</button>
+    </div>
+    <div id="status" class="big"></div>
+    <pre id="result" hidden></pre>
+    <div class="row">
+      <button id="dlwav" disabled>Download WAV</button>
+      <button id="dljson" disabled>Download JSON</button>
+    </div>
+    <script type="module" src="/src/fixture/main.ts"></script>
+  </body>
+</html>

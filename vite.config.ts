@@ -10,12 +10,12 @@ export default defineConfig(({ mode }) => ({
   plugins: [
     // Engine modules also run inside the AudioWorklet, which has no DOM: keep Preact's dev-only
     // refresh/debug injection (it imports the Vite HMR client) out of them.
-    preact({ exclude: [/\/src\/engine\//, /\/src\/platform\/recorderWorklet\.ts$/, /\/src\/store\/types\.ts$/] }),
+    preact({ exclude: [/\/src\/engine\//, /\/src\/platform\/recorderWorklet\.ts$/, /\/src\/capture\/tapWorklet\.ts$/, /\/src\/capture\/trackerWorker\.ts$/, /\/src\/store\/types\.ts$/] }),
     serviceWorker(), ...(mode === 'lan' ? [basicSsl()] : [])],
   build: {
     rollupOptions: {
       // bench.html: on-device engine benchmark. render.html: engine render harness, only built for tests.
-      input: (mode === 'test' ? { main: 'index.html', bench: 'bench.html', render: 'render.html' } : { main: 'index.html', bench: 'bench.html' }) as Record<string, string>,
+      input: (mode === 'test' ? { main: 'index.html', bench: 'bench.html', fixture: 'fixture.html', render: 'render.html' } : { main: 'index.html', bench: 'bench.html', fixture: 'fixture.html' }) as Record<string, string>,
     },
   },
   test: {

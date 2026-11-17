@@ -2,6 +2,7 @@
 // "da" (consonant burst + energy dip at each onset), hum, whistle (two octaves up) and plucked
 // guitar, with vibrato, pitch drift and noise; plus strummed chords. Deterministic (seeded).
 import type { CaptureSource } from '../../src/capture/types';
+import { refMelodyNotes } from '../../src/capture/reference';
 
 export type ExpectedNote = { start: number; end: number; midi: number };
 export type Fixture = { name: string; source: CaptureSource; rate: number; audio: Float32Array; notes: ExpectedNote[]; octaveFree?: boolean };
@@ -100,21 +101,9 @@ export function renderChords(chords: { start: number; end: number; notes: number
   return out;
 }
 
-/** A melody in A minor at 100 BPM: 8th and quarter notes, repeated pitches and leaps. */
+/** The shared reference melody (src/capture/reference.ts), starting at 0.3 s. */
 export function melodyNotes(bpm = 100): ExpectedNote[] {
-  const q = 60 / bpm; // quarter
-  const line: [number, number][] = [
-    [69, 1], [72, 0.5], [71, 0.5], [69, 1], [64, 1],
-    [65, 0.5], [67, 0.5], [69, 1], [69, 0.5], [67, 0.5], [64, 1],
-  ];
-  const out: ExpectedNote[] = [];
-  let t = 0.3;
-  for (const [m, beats] of line) {
-    const dur = beats * q;
-    out.push({ start: t, end: t + dur * 0.9, midi: m });
-    t += dur;
-  }
-  return out;
+  return refMelodyNotes(0.3, 0, bpm);
 }
 
 export function fixtures(): Fixture[] {

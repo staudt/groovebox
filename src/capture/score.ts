@@ -39,3 +39,44 @@ function nearest(xs: NoteLike[], t: number): NoteLike {
   for (const x of xs) if (Math.abs(x.start - t) < Math.abs(best.start - t)) best = x;
   return best;
 }
+
+/**
+ * Grid accuracy for recordings made against a click (the fixture recorder): a note is right when
+ * it lands on the same 1/8 (or 1/16) step with the same pitch. A global time offset (recording
+ * start vs. the click, within ±0.3 s) is searched first, so the device's latency doesn't matter.
+ */
+export function gridAccuracy(
+  expected: NoteLike[],
+  got: NoteLike[],
+  opts: { bpm: number; grid?: 8 | 16; octaveFree?: boolean },
+): { accuracy: number; matched: number; extra: number; offset: number } {
+  const stepS = (60 / opts.bpm / 4) * (opts.grid === 16 ? 1 : 2);
+  const slot = (t: number) => Math.round(t / stepS);
+  let best = { accuracy: 0, matched: 0, extra: got.length, offset: 0 };
+  let bestDev = Infinity;
+  for (let o = -0.3; o <= 0.3001; o += 0.005) {
+    const shifted = got.map((g) => ({ start: g.start - o, midi: g.midi }));
+    // Octave normalization as in noteAccuracy.
+    let shift = 0;
+    if (opts.octaveFree && shifted.length && expected.length) {
+      const d = shifted.map((g) => Math.round((Math.round(g.midi) - Math.round(nearest(expected, g.start).midi)) / 12)).sort((a, b) => a - b);
+      shift = d[Math.floor(d.length / 2)]! * 12;
+    }
+    const used = new Set<number>();
+    let matched = 0;
+    let dev = 0; // tie-break: how far matched notes sit from the expected onsets
+    for (const e of expected) {
+      const i = shifted.findIndex((g, k) => !used.has(k) && slot(g.start) === slot(e.start) && Math.round(g.midi) - shift === Math.round(e.midi));
+      if (i >= 0) {
+        used.add(i);
+        matched++;
+        dev += Math.abs(shifted[i]!.start - e.start);
+      }
+    }
+    if (matched > best.matched || (matched === best.matched && matched > 0 && dev < bestDev)) {
+      best = { accuracy: expected.length ? matched / expected.length : 1, matched, extra: got.length - used.size, offset: o };
+      bestDev = dev;
+    }
+  }
+  return best;
+}

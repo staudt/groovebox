@@ -3,7 +3,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { transcribe, type ModelFiles } from '../../src/capture/transcribe';
-import { noteAccuracy } from '../../src/capture/score';
+import { gridAccuracy, noteAccuracy } from '../../src/capture/score';
 import type { CaptureSource } from '../../src/capture/types';
 
 const DIR = 'tests/fixtures/capture/';
@@ -43,10 +43,12 @@ const files: ModelFiles | null = bin ? { json: JSON.parse(readFileSync(dir + 'mo
 describe.skipIf(names.length === 0)('real capture fixtures', () => {
   for (const name of names) {
     it(`${name}`, { timeout: 300_000 }, async () => {
-      const meta = JSON.parse(readFileSync(DIR + name + '.json', 'utf8')) as { source: CaptureSource; notes: { start: number; end: number; midi: number }[]; octaveFree?: boolean };
+      const meta = JSON.parse(readFileSync(DIR + name + '.json', 'utf8')) as { source: CaptureSource; notes: { start: number; end: number; midi: number }[]; octaveFree?: boolean; bpm?: number };
       const { audio, rate } = readWav(readFileSync(DIR + name + '.wav'));
       const t = await transcribe(audio, rate, meta.source, { files });
-      const r = noteAccuracy(meta.notes, t.notes, { octaveFree: meta.octaveFree });
+      // Recorded against a click (fixture recorder, `bpm` set): right note on the right 1/8 step.
+      // Hand-annotated: pitch + onset within 50 ms.
+      const r = meta.bpm ? gridAccuracy(meta.notes, t.notes, { bpm: meta.bpm, octaveFree: meta.octaveFree }) : noteAccuracy(meta.notes, t.notes, { octaveFree: meta.octaveFree });
       const target = meta.source === 'chords' ? 0.75 : 0.9;
       console.log(`${name}: ${(r.accuracy * 100).toFixed(0)} % (${r.matched}/${meta.notes.length}), extra ${r.extra}, model ${t.model}`);
       expect(r.accuracy).toBeGreaterThanOrEqual(target);

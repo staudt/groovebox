@@ -68,3 +68,15 @@ describe('quantize, key, transpose', () => {
     expect(octaveFit([{ step: 0, length: 1, midi: 88, velocity: 1 }], 66)).toBe(-24);
   });
 });
+
+describe('grid accuracy (fixture recorder scoring)', () => {
+  it('finds the global offset and scores notes on the 1/8 grid', async () => {
+    const { gridAccuracy } = await import('../../src/capture/score');
+    const exp = [0, 0.6, 1.2, 1.8].map((t, i) => ({ start: t, midi: 60 + i }));
+    // A human performance: 120 ms late overall, ±40 ms jitter, one wrong pitch.
+    const got = exp.map((e, i) => ({ start: e.start + 0.12 + [0.03, -0.04, 0.02, 0][i]!, midi: i === 3 ? 70 : e.midi }));
+    const r = gridAccuracy(exp, got, { bpm: 100 });
+    expect(r.matched).toBe(3);
+    expect(r.offset).toBeGreaterThan(0.05);
+  });
+});
