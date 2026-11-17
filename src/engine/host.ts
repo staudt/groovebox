@@ -304,6 +304,16 @@ export async function resample(source: number, bars: number): Promise<{ l: Float
   });
 }
 
+/** Plays an audition sequence through the engine (sample-accurate; the project is untouched). */
+export async function playSequence(notes: { track: number; note: number; vel: number; at: number; dur: number }[]): Promise<void> {
+  await startAudio();
+  post({ type: 'sequence', notes });
+}
+
+export function stopSequence(): void {
+  post({ type: 'sequenceStop' });
+}
+
 /** Audition a drum track immediately (pads, step preview). */
 export async function audition(track: number, vel = 100): Promise<void> {
   await startAudio();

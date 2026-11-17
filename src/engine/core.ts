@@ -40,7 +40,9 @@ const EV_FX_OFF = 4;
 const EV_FX_XY = 5;
 const EV_MUTE = 6;
 const LANE_MAX = 256;
-const QUEUE = 256;
+const QUEUE = 1024;
+/** Lead time before an audition sequence starts (lets the command land before its first note). */
+const SEQ_LEAD_S = 0.03;
 const METER_HZ = 30;
 /** Steps are scanned this far ahead so negative nudges (up to -0.5 step) can still fire on time. */
 const LOOKAHEAD_STEPS = 0.5;
@@ -126,6 +128,9 @@ export class Engine {
   private qSeq = new Uint8Array(QUEUE); // 1 = from the sequencer (dropped on stop), 0 = live / audition
   private qLen = 0;
   private noteIds = 0;
+  // Audition sequence: its note ids are seqFirst..seqLast (qSeq = 2 in the queue).
+  private seqFirst = 0;
+  private seqLast = -1;
   /** Loaded samples by id (filled by 'sample' commands, at UI rate). */
   private readonly samples = new Map<string, SampleData>();
   // Resample capture.
@@ -517,6 +522,22 @@ export class Engine {
         this.soloTrack = cmd.track;
         for (let t = 0; t < MAX_TRACKS; t++) this.snapGainIfSilent(this.tracks[t]!);
         break;
+      case 'sequence': {
+        this.stopSequence();
+        const base = this.frame + SEQ_LEAD_S * this.sampleRate;
+        this.seqFirst = this.noteIds + 1;
+        for (const n of cmd.notes) {
+          const id = ++this.noteIds;
+          const on = base + Math.max(0, n.at) * this.sampleRate;
+          this.enqueue(on, EV_ON, n.track, n.vel, n.note, id, 2);
+          this.enqueue(on + Math.max(0.01, n.dur) * this.sampleRate, EV_OFF, n.track, 0, n.note, id, 2);
+        }
+        this.seqLast = this.noteIds;
+        break;
+      }
+      case 'sequenceStop':
+        this.stopSequence();
+        break;
       case 'trigger':
         this.enqueue(this.frame, EV_HIT, cmd.track, cmd.vel, 0, 0, 0);
         break;
@@ -563,6 +584,23 @@ export class Engine {
     this.qId[i] = this.qId[last]!;
     this.qY[i] = this.qY[last]!;
     this.qSeq[i] = this.qSeq[last]!;
+  }
+
+  /** Cancels an audition sequence: pending notes are dropped, sounding ones released. */
+  private stopSequence(): void {
+    for (let i = this.qLen - 1; i >= 0; i--) if (this.qSeq[i] === 2) this.removeAt(i);
+    for (let t = 0; t < MAX_TRACKS; t++) {
+      const ts = this.tracks[t]!;
+      for (let v = 0; v < FM_VOICES; v++) {
+        const voice = ts.fmVoices[v]!;
+        if (voice.active && voice.id >= this.seqFirst && voice.id <= this.seqLast) voice.noteOff(ts.fm);
+      }
+      for (let v = 0; v < SAMPLER_VOICES; v++) {
+        const voice = ts.samplerVoices[v]!;
+        if (voice.active && voice.id >= this.seqFirst && voice.id <= this.seqLast) voice.noteOff(ts.sampler.chromatic, true);
+      }
+    }
+    this.seqLast = -1;
   }
 
   private dropSequenced(): void {

@@ -243,3 +243,26 @@ describe('FM voices', () => {
     }
   });
 });
+
+describe('audition sequence', () => {
+  it('plays notes at their offsets (sample-accurate) and stops on sequenceStop', () => {
+    const p = patchWith(1, { 1: 99 }, { a: 0, d: 0.1, s: 0, r: 0 });
+    const seq: EngineCommand = { type: 'sequence', notes: [0, 0.25, 0.5].map((at, i) => ({ track: 0, note: 72 + i, vel: 100, at, dur: 0.1 })) };
+    const r = render([...fmTrack(0, p, '.'), seq], 1.2, { at: [{ time: 0.6, cmd: { type: 'sequenceStop' } }] });
+    const lead = Math.round(0.03 * SR) + r.engine.latency;
+    for (const at of [0, 0.25, 0.5]) {
+      const i0 = lead + Math.round(at * SR);
+      let first = -1;
+      for (let i = i0 - 100; i < i0 + 300; i++) if (Math.abs(r.left[i]!) > 1e-3) { first = i; break; }
+      expect(Math.abs(first - i0) / SR).toBeLessThan(0.001);
+    }
+    expect(peak(r.left.subarray(Math.round(0.75 * SR)))).toBeLessThan(1e-3);
+  });
+
+  it('a stop cancels the notes still to come', () => {
+    const p = patchWith(1, { 1: 99 }, { a: 0, s: 1, r: 0.05 });
+    const seq: EngineCommand = { type: 'sequence', notes: [{ track: 0, note: 60, vel: 100, at: 0, dur: 2 }, { track: 0, note: 67, vel: 100, at: 1, dur: 0.5 }] };
+    const r = render([...fmTrack(0, p, '.'), seq], 1.6, { at: [{ time: 0.5, cmd: { type: 'sequenceStop' } }] });
+    expect(peak(r.left.subarray(Math.round(0.8 * SR)))).toBeLessThan(1e-3);
+  });
+});

@@ -33,6 +33,13 @@ export type EngineCommand =
   /** Live notes (keyboard, MIDI). A noteOn without a later noteOff rings until released. */
   | { type: 'noteOn'; track: number; note: number; vel: number }
   | { type: 'noteOff'; track: number; note: number }
+  /**
+   * Audition a short note sequence (e.g. a captured melody with its harmony) without touching the
+   * project: the engine schedules every note sample-accurately from now. `at`/`dur` in seconds.
+   * Replaces any running audition.
+   */
+  | { type: 'sequence'; notes: { track: number; note: number; vel: number; at: number; dur: number }[] }
+  | { type: 'sequenceStop' }
   /** Release every live (keyboard) note on a track, e.g. when Hold is switched off. */
   | { type: 'allNotesOff'; track: number }
   /** atBar: while playing, switch on the next bar line (scene recall). */
