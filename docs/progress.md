@@ -1,5 +1,27 @@
 # Progress
 
+## Phase 5: Capture and harmony (2026-11-17) — awaiting phone check and real recordings
+
+**Built**
+- Live tracker: YIN on 16 kHz audio at 100 fps, clarity threshold, 5-frame median; precise from 82 Hz to 3 kHz (multi-period refinement for whistles). Runs in a Web Worker fed by its own AudioWorklet tap; drives the note readout, tuning bar and pitch trace.
+- Final transcription: Spotify Basic Pitch (TF.js, model 900 KB), lazy-loaded on first capture and precached for offline, in every mode; monophonic cleanup merges vibrato fragments and glides and fixes late onsets. Falls back to the live tracker. Place says "transcribed" or "tracked".
+- Segmentation (pitch jumps, energy dips for consonants, < 80 ms dropped), quantize (1/8 or 1/16), Krumhansl-Schmuckler key detection, auto-fit to the project key by the smallest interval (mode-aware: A minor hummed into C minor = +3), chromatic and in-key shifts, out-of-key warning with one-tap fit.
+- Harmony engine: diatonic triads and sevenths scored per bar by chord tones weighted by duration and beat, transition tables for Pop / Melancholy / Jazzy, Viterbi, minimal-movement voicing; outputs PAD chords, BASS roots and a 2nd voice (a third or sixth below, in key). Deterministic, well under 50 ms.
+- Capture and Place screens per `Hum.dc.html` / `HumPlace.dc.html` (Capture button on Play, desktop card, `R`); count-in and click on the audio clock; latency calibration (6 clicks, median, stored per device) applied to captures; Place previews through the engine; Place writes melody, chords, bass and 2nd voice in one undo step; "Keep as clip" saves the take as a sample.
+- Pattern pages: 32/64-step patterns (a 2-bar capture is 32 steps) show page tabs on Play.
+- Fixture recorder page (`fixture.html`) for the user's real recordings, scored instantly.
+
+**Agreed accuracy targets** (user, 2026-11-17): voice, whistle and single-note guitar at least 90 % of notes; strummed chords at least 75 %. A note is right when the pitch matches and it starts within 50 ms (whistle octave normalized). Recordings made against the click on the fixture page are scored on the 1/8 grid after an automatic offset search, since human timing varies more than 50 ms.
+
+**Verified automatically**
+- Synthetic fixtures (sung "da", hum, whistle two octaves up, guitar, noisy 44.1 kHz voice, strummed chords): live tracker >= 90 % on all mono fixtures; Basic Pitch 100 % on all six.
+- Harmony: I-IV-V-I under an arpeggiated melody, styles differ (Jazzy uses sevenths, Pop never), voice leading moves <= 8 semitones, 2nd voice in key, deterministic, fast.
+- 282 unit tests, 229 Playwright tests incl. a fake-microphone capture end to end (Basic Pitch ran in the browser), latency calibration, pages, and every screen fitting 360x640 to 412x915.
+
+**Needs a human**
+- Real recordings for `tests/fixtures/capture/` via https://staudt.github.io/groovebox/fixture.html (voice "da", hum, whistle, single-note guitar, strummed chords).
+- On the phone: capture feel (count-in, clicks with headphones), whether Place matches what you sang, the calibrated latency number, how long the first model load takes, harmony takes by ear.
+
 ## Phase 4: Song and mixer (2026-11-16) — awaiting phone check
 
 **Built**
