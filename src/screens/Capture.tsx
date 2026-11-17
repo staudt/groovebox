@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
+import { useEffect, useRef, useState, useLayoutEffect } from 'preact/hooks';
 import { captureView } from '../app/nav';
 import { COUNT_IN_OPTIONS, LENGTH_OPTIONS, captureBars, captureResult, captureSource, countInBars } from '../capture/session';
 import { startLive, type LiveSession } from '../capture/live';
@@ -282,7 +282,9 @@ export function Capture() {
   const recording = phase === 'countin' || phase === 'recording';
   const busy = phase === 'starting' || phase === 'processing';
 
-  useEffect(() => {
+  // Layout effect: the key handler is attached before the screen is painted, so a key pressed
+  // the moment Capture appears (Escape, R) is never lost.
+  useLayoutEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (calOpen || e.ctrlKey || e.metaKey || e.altKey) return;
       if (e.key === 'Escape') { e.preventDefault(); if (recording) void finish(true); else if (!busy) captureView.value = 'off'; }

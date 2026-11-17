@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
+import { useEffect, useMemo, useRef, useState, useLayoutEffect } from 'preact/hooks';
 import { captureView, screen } from '../app/nav';
 import { captureResult } from '../capture/session';
 import { quantize } from '../capture/notes';
@@ -86,7 +86,8 @@ export function Place() {
     setPlayingPrev(false);
   };
   useEffect(() => stopPreview, []);
-  useEffect(() => {
+  // Layout effect: attached before paint, so Escape works the moment Place appears.
+  useLayoutEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.preventDefault(); stopPreview(); captureView.value = 'off'; } };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
