@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { apply, currentPattern, project } from '../store/project';
 import { recallScene } from '../engine/host';
-import { ASSISTANT_ENABLED } from '../app/features';
+import { assistantOn } from '../app/features';
 import { selectedSection, songView } from '../app/songUi';
 import { SectionChain, songReadout } from '../ui/SectionChain';
 import { MixView } from '../ui/MixView';
@@ -171,7 +171,7 @@ export function Song(props: { desktop?: boolean } = {}) {
       </div>
       {view === 'mix' ? <MixView /> : <Arrangement />}
       {view === 'arrange' && <Scenes />}
-      {ASSISTANT_ENABLED && view === 'arrange' && <AskBar />}
+      {assistantOn.value && view === 'arrange' && <AskBar />}
     </div>
   );
 }

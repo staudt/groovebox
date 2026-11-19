@@ -8,8 +8,11 @@ import './ui/ui.css';
 import { App } from './app/App';
 import { startPersistence } from './store/persist';
 import { startFxMoveRecorder } from './app/fxMoves';
+import { checkAssistant } from './assist/client';
 
 startFxMoveRecorder();
+// Is a local assistant proxy (dev/preview server with ANTHROPIC_API_KEY) reachable? Hidden otherwise.
+void checkAssistant();
 
 // Restore the autosaved project before the first render (falls back to the default on any error).
 void startPersistence()

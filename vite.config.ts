@@ -3,6 +3,7 @@ import { defineConfig } from 'vite';
 import preact from '@preact/preset-vite';
 import basicSsl from '@vitejs/plugin-basic-ssl';
 import { serviceWorker } from './scripts/sw-plugin';
+import { assistProxy } from './scripts/assist-plugin';
 
 export default defineConfig(({ mode }) => ({
   base: './',
@@ -11,7 +12,9 @@ export default defineConfig(({ mode }) => ({
     // Engine modules also run inside the AudioWorklet, which has no DOM: keep Preact's dev-only
     // refresh/debug injection (it imports the Vite HMR client) out of them.
     preact({ exclude: [/\/src\/engine\//, /\/src\/platform\/recorderWorklet\.ts$/, /\/src\/capture\/tapWorklet\.ts$/, /\/src\/capture\/trackerWorker\.ts$/, /\/src\/store\/types\.ts$/] }),
-    serviceWorker(), ...(mode === 'lan' ? [basicSsl()] : [])],
+    serviceWorker(),
+    // Local-only assistant proxy (dev + preview servers; key from .env). Not part of the static build.
+    assistProxy(mode), ...(mode === 'lan' ? [basicSsl()] : [])],
   build: {
     rollupOptions: {
       // bench.html: on-device engine benchmark. render.html: engine render harness, only built for tests.
@@ -21,7 +24,7 @@ export default defineConfig(({ mode }) => ({
   test: {
     environment: 'node',
     // TOOLS=1 runs the dev tools in tests/tools (demo renders, benchmarks) instead of the test suite.
-    include: process.env.TOOLS ? ['tests/tools/**/*.tool.ts'] : ['src/**/*.test.ts', 'tests/unit/**/*.test.ts', 'tests/audio/**/*.test.ts', 'tests/capture/**/*.test.ts'],
+    include: process.env.TOOLS ? ['tests/tools/**/*.tool.ts'] : ['src/**/*.test.ts', 'tests/unit/**/*.test.ts', 'tests/audio/**/*.test.ts', 'tests/capture/**/*.test.ts', 'tests/assist/**/*.test.ts'],
     testTimeout: process.env.TOOLS ? 120_000 : 5_000,
   },
 }));

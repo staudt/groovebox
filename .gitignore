@@ -5,3 +5,8 @@ test-results
 playwright-report
 *.local
 renders
+
+# Local secrets (ANTHROPIC_API_KEY for the dev-server assistant proxy)
+.env
+.env.*
+!.env.example
