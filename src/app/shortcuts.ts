@@ -43,7 +43,11 @@ export function useShortcuts(): void {
         e.preventDefault();
         openCapture();
       }
-      // "/" (ask the assistant) arrives with Phase 6.
+      else if (!mod && !e.altKey && e.key === '/') {
+        // Focus the Ask bar when one is on screen (assistant on); otherwise leave the key alone.
+        const ask = document.querySelector<HTMLInputElement>('[data-ask-input]');
+        if (ask) { e.preventDefault(); ask.focus(); }
+      }
     };
     // Space on a focused button would also click it on keyup.
     const onKeyUp = (e: KeyboardEvent) => { if (e.code === 'Space') e.preventDefault(); };

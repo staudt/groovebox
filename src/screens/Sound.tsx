@@ -13,7 +13,7 @@ import { EnvelopeEditor, type EnvChange } from '../ui/EnvelopeEditor';
 import { KeyboardDrawer } from '../ui/KeyboardDrawer';
 import { SoloButton } from '../ui/SoloButton';
 import { SamplerSound } from './SamplerSound';
-import { assistantOn } from '../app/features';
+import { DescribeSound } from '../ui/DescribeSound';
 import '../ui/sound.css';
 
 const selOp = signal(0);
@@ -162,12 +162,7 @@ function FmSound(props: { patch: FmPatch; embedded?: boolean }) {
         </div>
       </div>
 
-      {assistantOn.value && <><div class="sn-assist" aria-disabled="true">
-        <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true" fill="none" stroke="#5CC8FF" stroke-width="1.6" stroke-linecap="round"><path d="M9 2 L10.6 7.4 L16 9 L10.6 10.6 L9 16 L7.4 10.6 L2 9 L7.4 7.4 Z" /></svg>
-        <input aria-label="Describe a sound" placeholder="Describe a sound: glassy bell, slow attack…" disabled />
-        <button disabled>Make</button>
-      </div>
-      <div class="sn-note">Arrives with the assistant (Phase 6)</div></>}
+      <DescribeSound track={t} patch={patch} />
 
       {!props.embedded && (
         <div class="sn-kb-slot">

@@ -48,7 +48,7 @@
 .sn-coarse { display: flex; align-items: center; border: 1px solid var(--border); border-radius: 10px; background: var(--raised); height: 48px; }
 .sn-coarse button { width: 44px; height: 46px; background: none; border: none; color: var(--text); font-size: 20px; }
 .sn-coarse span { min-width: 52px; text-align: center; font-family: var(--font-mono); font-size: 15px; }
-.sn-assist { display: flex; gap: 8px; align-items: center; background: var(--assist-bg); border: 1px solid var(--assist-border); border-radius: 16px; padding: 10px 10px 10px 12px; opacity: 0.55; flex: 0 0 auto; }
+.sn-assist { display: flex; gap: 8px; align-items: center; background: var(--assist-bg); border: 1px solid var(--assist-border); border-radius: 16px; padding: 10px 10px 10px 12px; flex: 0 0 auto; }
 .sn-assist input { flex-grow: 1; min-width: 0; height: 44px; border: none; background: transparent; color: var(--text); font-size: 14px; }
 .sn-assist button { height: 44px; padding: 0 14px; border-radius: 12px; border: none; background: var(--assist); color: #0e1a22; font-weight: 700; font-size: 14px; }
 .sn-note { font-size: 11px; color: var(--assist-text); font-family: var(--font-mono); margin-top: -4px; flex: 0 0 auto; }

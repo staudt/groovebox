@@ -1,0 +1,61 @@
+/* Assistant UI: cyan = suggestions. Nothing here shows unless the assistant proxy answers. */
+.as-bar { flex: 0 0 auto; display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.as-row { display: flex; align-items: center; gap: 8px; height: 52px; padding: 0 8px 0 14px; border-radius: 14px; border: 1px solid var(--assist-border); background: var(--assist-bg); color: var(--assist-text); }
+.as-row input { flex: 1 1 auto; min-width: 0; height: 44px; border: none; background: transparent; color: var(--text); font-size: 14px; }
+.as-row input::placeholder { color: var(--assist-text); opacity: 0.8; }
+.as-row button { flex: 0 0 auto; height: 40px; min-width: 44px; padding: 0 12px; border-radius: 10px; border: none; background: var(--assist); color: #0e1a22; font-weight: 700; font-size: 13px; }
+.as-row button:disabled { opacity: 0.4; }
+.as-row .as-cancel { background: transparent; border: 1px solid var(--assist-border); color: var(--assist-text); font-weight: 400; }
+.as-wait { flex: 1 1 auto; font-size: 13px; animation: as-pulse 1.2s ease-in-out infinite; }
+@keyframes as-pulse { 50% { opacity: 0.45; } }
+@media (prefers-reduced-motion: reduce) { .as-wait { animation: none; } }
+.as-muted { font-size: 11px; color: var(--muted); font-family: var(--font-mono); margin-top: 4px; flex: 0 0 auto; }
+.as-card { width: 100%; box-sizing: border-box; background: var(--assist-bg); border-top: 1px solid var(--assist-border); border-radius: 16px 16px 0 0; padding: 16px 16px max(16px, env(safe-area-inset-bottom)) 16px; display: flex; flex-direction: column; gap: 10px; max-height: 80%; overflow: auto; }
+.as-card h3 { margin: 0; font-size: 14px; color: var(--assist-text); font-weight: 600; }
+.as-prop { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 4px 10px; border-radius: 10px; border: 1px solid var(--assist-border); background: #1f3442; color: #cfebfa; font-size: 13px; cursor: pointer; }
+.as-prop input { width: 20px; height: 20px; accent-color: var(--assist); flex: 0 0 auto; }
+.as-prop span { min-width: 0; overflow-wrap: anywhere; font-family: var(--font-mono); font-size: 12px; }
+.as-actions { display: flex; gap: 8px; }
+.as-actions button { flex: 1 1 0; height: 44px; border-radius: 12px; border: 1px solid var(--assist-border); background: transparent; color: var(--assist-text); font-size: 14px; }
+.as-actions .as-go { background: var(--assist); color: #0e1a22; border: none; font-weight: 700; }
+.as-actions button:disabled { opacity: 0.4; }
+.dsk .as-card { max-width: 480px; border-radius: 16px; }
+
+/* Describe a sound */
+.sn-assist.live { opacity: 1; flex-wrap: wrap; }
+.sn-assist .as-takes { flex: 1 1 100%; display: flex; flex-wrap: wrap; gap: 6px; }
+.as-take { display: flex; align-items: center; gap: 8px; height: 40px; max-width: 100%; padding: 0 10px; border-radius: 10px; border: 1px solid var(--assist-border); background: #1f3442; color: #cfebfa; font-size: 12px; text-align: left; }
+.as-take b { color: var(--assist); font-family: var(--font-mono); }
+.as-take span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.as-take[aria-pressed='true'] { border-color: var(--assist); background: #24465a; }
+.sn-assist .as-take { background: #1f3442; color: #cfebfa; font-weight: 400; }
+.sn-assist button.as-take[aria-pressed='true'] { background: #24465a; }
+
+/* Place suggestion */
+.pl-where[data-asst] .pl-step[data-sug] { border-color: var(--assist); background: #1f3442; color: #cfebfa; position: relative; }
+.pl-where[data-asst] .pl-step:not([data-sug]) { border-color: var(--border); background: var(--raised); color: var(--text); }
+.pl-tag { position: absolute; top: -1px; left: 50%; transform: translateX(-50%); font-size: 8px; line-height: 1; font-family: var(--font-mono); padding: 1px 4px; border-radius: 0 0 4px 4px; background: var(--assist); color: #0e1a22; pointer-events: none; }
+.pl-reason { font-size: 12px; color: var(--assist-text); }
+
+/* Jam */
+.jam { flex: 0 0 auto; display: flex; flex-direction: column; gap: 6px; }
+.jam-head { display: flex; align-items: center; gap: 8px; }
+.jam-head > span { flex: 1 1 auto; font-size: 12px; color: var(--muted); font-family: var(--font-mono); }
+.jam-toggle { height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--assist-border); background: var(--assist-bg); color: var(--assist-text); font-size: 13px; }
+.jam-toggle[aria-pressed='true'] { background: var(--assist); color: #0e1a22; font-weight: 700; }
+.jam-item { display: flex; align-items: center; gap: 8px; min-height: 44px; padding: 4px 6px 4px 10px; border-radius: 12px; border: 1px solid var(--assist-border); background: var(--assist-bg); color: #cfebfa; font-size: 13px; }
+.jam-item[data-status='played'], .jam-item[data-status='skipped'] { opacity: 0.55; }
+.jam-item .jam-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.jam-item small { font-family: var(--font-mono); font-size: 10px; color: var(--assist-text); }
+.jam-item button { height: 36px; min-width: 52px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--assist-border); background: transparent; color: var(--assist-text); font-size: 12px; }
+.jam-item button.q { background: var(--assist); color: #0e1a22; border: none; font-weight: 700; }
+.jam-item .st { font-family: var(--font-mono); font-size: 11px; color: var(--assist-text); padding: 0 6px; }
+.sn-assist .as-take { height: 40px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--assist-border); font-size: 12px; }
+.sn-assist .as-take[aria-pressed='true'] { border-color: var(--assist); }
+.sn-assist .as-cancel { background: transparent; border: 1px solid var(--assist-border); color: var(--assist-text); font-weight: 400; }
+
+/* Short phones (S22 in Chrome is ~640 px tall): Play with the keyboard open has no room left, so the
+   Ask bar (and the no-key hint) step aside until the keyboard is collapsed. */
+@media (max-height: 700px) {
+  .app-main:has(.kbd-keys[aria-expanded='true']) :is(.as-bar, [data-testid='assist-hint']) { display: none; }
+}

@@ -5,6 +5,11 @@ import { expect, test, type Page } from '@playwright/test';
 
 test.skip(({ isMobile }) => !isMobile, 'phone layouts');
 
+// The assistant is hidden (no proxy, like GitHub Pages), so these are the layouts users see there.
+test.beforeEach(async ({ page }) => {
+  await page.route('**/api/assist/health', (r) => r.fulfill({ status: 404, body: 'no' }));
+});
+
 const SIZES: [number, number][] = [
   [360, 640],
   [360, 700],
@@ -121,6 +126,42 @@ for (const [w, h] of SIZES) {
       // The Harmony card and both action buttons are fully on screen.
       const box = await page.getByRole('button', { name: /^Place in/ }).boundingBox();
       expect(box!.y + box!.height).toBeLessThanOrEqual(h);
+    });
+  });
+}
+
+// With the assistant on (local dev server with a key), the Ask bar and Describe card must still fit.
+for (const [w, h] of [[360, 640], [390, 844]] as [number, number][]) {
+  test.describe(`assistant on, ${w}x${h}`, () => {
+    test.use({ viewport: { width: w, height: h } });
+    for (const c of CASES.filter((x) => ['Play melodic with keyboard', 'Play drum', 'Sound FM with keyboard'].includes(x.name))) {
+      test(`${c.name} fits with the assistant on`, async ({ page }) => {
+        await page.route('**/api/assist/health', (r) => r.fulfill({ json: { ok: true, model: 'claude-haiku-5-5' } }));
+        await page.goto('/');
+        await go(page, c);
+        const shortWithKeys = h <= 700 && c.name === 'Play melodic with keyboard';
+        if (shortWithKeys) {
+          // No room on short phones with the keyboard open: the Ask bar steps aside until it is collapsed.
+          await expect(page.locator('[data-ask-input]')).toBeHidden();
+        } else {
+          await expect(page.locator('[data-ask-input]').or(page.getByRole('textbox', { name: /Describe a sound/i })).first()).toBeVisible();
+        }
+        const o = await overflow(page);
+        expect(o.main, 'main area overflow (px)').toBeLessThanOrEqual(1);
+        expect(o.doc, 'page overflow (px)').toBeLessThanOrEqual(1);
+        if (shortWithKeys) {
+          await page.getByRole('button', { name: /^Keys/ }).click(); // collapse the keyboard
+          await expect(page.locator('[data-ask-input]')).toBeVisible();
+          expect((await overflow(page)).main).toBeLessThanOrEqual(1);
+        }
+      });
+    }
+    test('the no-key hint fits too', async ({ page }) => {
+      await page.route('**/api/assist/health', (r) => r.fulfill({ json: { ok: false, reason: 'no-key' } }));
+      await page.goto('/');
+      await go(page, CASES.find((x) => x.name === 'Play melodic with keyboard')!);
+      const o = await overflow(page);
+      expect(o.main).toBeLessThanOrEqual(1);
     });
   });
 }

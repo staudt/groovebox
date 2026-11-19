@@ -7,7 +7,6 @@ import { AskBar } from '../ui/AskBar';
 import { RhythmPanel } from '../ui/RhythmPanel';
 import { KeyboardDrawer } from '../ui/KeyboardDrawer';
 import { isMelodic } from '../store/defaults';
-import { assistantOn } from '../app/features';
 import { SoloButton } from '../ui/SoloButton';
 import { PatternChips } from '../ui/PatternChips';
 import { openCapture } from '../capture/session';
@@ -30,7 +29,7 @@ export function Play(props: { desktop?: boolean } = {}) {
           <div class="dsk-play-grid"><PageBar length={track.value.patterns[currentPattern.value].length} /><StepGrid /></div>
           <div class="dsk-play-side">
             {rhythmOpen ? <RhythmPanel onClose={() => setRhythmOpen(false)} /> : <Macros />}
-            {assistantOn.value && <AskBar />}
+            <AskBar />
           </div>
         </div>
       </div>
@@ -52,7 +51,7 @@ export function Play(props: { desktop?: boolean } = {}) {
       <PageBar length={track.value.patterns[currentPattern.value].length} />
       <StepGrid />
       {rhythmOpen ? <RhythmPanel onClose={() => setRhythmOpen(false)} /> : <Macros />}
-      {assistantOn.value && <AskBar />}
+      <AskBar />
       {isMelodic(track.value) && <KeyboardDrawer initialLayout="scale" trackIndex={selectedTrack.value} />}
     </>
   );

@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'preact/hooks';
 import { apply, currentPattern, project } from '../store/project';
 import { recallScene } from '../engine/host';
-import { assistantOn } from '../app/features';
 import { selectedSection, songView } from '../app/songUi';
 import { SectionChain, songReadout } from '../ui/SectionChain';
 import { MixView } from '../ui/MixView';
 import { PressButton } from '../ui/PressButton';
 import { Sheet } from '../ui/Sheet';
 import { AskBar } from '../ui/AskBar';
+import { JamPanel } from '../ui/JamPanel';
 import { MAX_SECTIONS, currentMutes, cycleCell, deleteSection, duplicateSection, makeSection, moveSection, newId, patchSection, sameMutes, sceneName } from '../store/songEdit';
 import type { Scene } from '../store/types';
 import { songPos } from '../engine/host';
@@ -171,7 +171,8 @@ export function Song(props: { desktop?: boolean } = {}) {
       </div>
       {view === 'mix' ? <MixView /> : <Arrangement />}
       {view === 'arrange' && <Scenes />}
-      {assistantOn.value && view === 'arrange' && <AskBar />}
+      {view === 'arrange' && <JamPanel />}
+      {view === 'arrange' && <AskBar />}
     </div>
   );
 }

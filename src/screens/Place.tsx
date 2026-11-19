@@ -14,15 +14,23 @@ import { isMelodic } from '../store/defaults';
 import { midiToNote } from '../store/notation';
 import { saveSample } from '../store/samples';
 import { PATTERN_IDS, type PatternId } from '../store/types';
+import { assistantOn } from '../app/features';
+import { askAssistant } from '../assist/client';
+import { placeSuggestion } from '../assist/apply';
+import { projectSummary } from '../assist/summary';
+import { placeControls, type PlaceKey } from '../assist/placeUi';
+import { formatPattern } from '../store/notation';
 import '../ui/capture.css';
+import '../ui/assist.css';
 
 const STYLES: HarmonyStyle[] = ['pop', 'melancholy', 'jazzy'];
 const TAKE_ID = ['A', 'B', 'C'] as const;
 const SCALE_ABBR = { minor: 'min', major: 'maj', dorian: 'dor', mixolydian: 'mix', pentatonic: 'pent' } as const;
 
-function Stepper(props: { label: string; value: string; onPrev: () => void; onNext: () => void; testId: string }) {
+function Stepper(props: { label: string; value: string; onPrev: () => void; onNext: () => void; testId: string; suggested?: boolean }) {
   return (
-    <div class="pl-step">
+    <div class="pl-step" data-sug={props.suggested ? '' : undefined}>
+      {props.suggested && <i class="pl-tag">suggested</i>}
       <button aria-label={`${props.label} down`} onClick={props.onPrev}>−</button>
       <span data-testid={props.testId} aria-label={`${props.label}: ${props.value}`}>{props.label}: {props.value}</span>
       <button aria-label={`${props.label} up`} onClick={props.onNext}>+</button>
@@ -45,14 +53,22 @@ export function Place() {
   const [mode, setMode] = useState<'chromatic' | 'inkey'>('chromatic');
   const [steps, setSteps] = useState(0);
   const melodic = useMemo(() => p.tracks.map((t, i) => ({ t, i })).filter((x) => isMelodic(x.t)), [p.tracks]);
-  const [trackI, setTrackI] = useState(() => (melodic.find((x) => x.t.name === 'KEYS') ?? melodic[0])?.i ?? 0);
-  const [slot, setSlot] = useState<PatternId>(currentPattern.value);
-  const [sectionI, setSectionI] = useState(-1);
-  const [repeat, setRepeat] = useState(1);
+  const [trackI, setTrackIRaw] = useState(() => (melodic.find((x) => x.t.name === 'KEYS') ?? melodic[0])?.i ?? 0);
+  const [slot, setSlotRaw] = useState<PatternId>(currentPattern.value);
+  const [sectionI, setSectionIRaw] = useState(-1);
+  const [repeat, setRepeatRaw] = useState(1);
   const [take, setTake] = useState(0);
   const [parts, setParts] = useState<Parts>({ bass: false, pad: false, second: false });
   const [playingPrev, setPlayingPrev] = useState(false);
   const [msg, setMsg] = useState('');
+  // Assistant placement: which controls currently hold a suggestion (cyan), and why.
+  const [sug, setSug] = useState<PlaceKey[]>([]);
+  const [reason, setReason] = useState('');
+  const [asking, setAsking] = useState(false);
+  const touched = useRef<Set<PlaceKey>>(new Set());
+  const lastSug = useRef<string>('');
+  const ask = useRef<AbortController | null>(null);
+  const latest = useRef({ melody: '', oct: 0 });
   const timers = useRef<number[]>([]);
 
   const base: GridNote[] = useMemo(() => (res ? quantize(res.transcription.notes, res.bpm, grid, melodySteps) : []), [res, grid, melodySteps]);
@@ -60,10 +76,17 @@ export function Place() {
   const fitSemis = useMemo(() => fitInterval(detected, p.key, p.scale), [detected, p.key, p.scale]);
   const [semis, setSemis] = useState(fitSemis);
   // Auto-fit on entry: smallest interval into the project key, then the octave nearest the track's range.
-  const [oct, setOct] = useState(() => {
+  const [oct, setOctRaw] = useState(() => {
     const center = /BASS/i.test(p.tracks[trackI]?.name ?? '') ? 45 : 66;
     return Math.round(octaveFit(transposeChromatic(base, fitSemis), center) / 12);
   });
+  // Any manual change to a control clears its suggested (cyan) state.
+  const manual = <T,>(key: PlaceKey, set: (v: T) => void) => (v: T) => { touched.current.add(key); setSug((k) => k.filter((x) => x !== key)); set(v); };
+  const setTrackI = manual('trackI', setTrackIRaw);
+  const setSlot = manual('slot', setSlotRaw);
+  const setSectionI = manual('sectionI', setSectionIRaw);
+  const setRepeat = manual('repeat', setRepeatRaw);
+  const setOct = manual('oct', setOctRaw);
 
   const final: GridNote[] = useMemo(() => {
     const s1 = transposeChromatic(base, semis);
@@ -78,6 +101,51 @@ export function Place() {
     [final, p.key, p.scale, melodySteps],
   );
   const harm = harmonies[take]!;
+
+  const repOptsAll = repeatOptions(melodySteps);
+  latest.current = {
+    melody: (() => {
+      try {
+        const pl = buildPlacement({ melody: final, melodySteps, repeat: 1, harmony: null, parts: { bass: false, pad: false, second: false } });
+        return formatPattern({ length: pl.length, steps: pl.melody });
+      } catch { return ''; }
+    })(),
+    oct,
+  };
+  // Ask the assistant where the melody should go. The defaults stay until (and unless) it answers.
+  const requestPlace = async (): Promise<boolean> => {
+    ask.current?.abort();
+    const c = new AbortController();
+    ask.current = c;
+    setAsking(true);
+    const sentOct = latest.current.oct;
+    const proj = project.peek();
+    const r = await askAssistant({ feature: 'place', summary: projectSummary(proj, currentPattern.peek()), melody: latest.current.melody.slice(0, 2000), bars, key: `${pcName(proj.key)} ${proj.scale}` }, c.signal);
+    if (c.signal.aborted) return false;
+    ask.current = null;
+    setAsking(false);
+    const s = r ? placeSuggestion(proj, r) : null;
+    if (!s || !isMelodic(proj.tracks[s.track]!)) return false;
+    const key = `${s.track}${s.slot}${s.sectionId ?? ''}`;
+    if (key === lastSug.current) return false; // same answer again
+    lastSug.current = key;
+    const c2 = placeControls(s, proj, repOptsAll, sentOct);
+    const set: PlaceKey[] = [];
+    const take = <K extends PlaceKey>(k: K, fn: () => void) => { if (!touched.current.has(k)) { fn(); set.push(k); } };
+    take('trackI', () => setTrackIRaw(c2.trackI));
+    take('slot', () => setSlotRaw(c2.slot));
+    take('repeat', () => setRepeatRaw(c2.repeat));
+    take('oct', () => setOctRaw(c2.oct));
+    if (proj.sections.length > 0 && s.sectionId) take('sectionI', () => setSectionIRaw(c2.sectionI));
+    setSug(set);
+    setReason(s.reason);
+    return true;
+  };
+  useEffect(() => {
+    if (!assistantOn.value || !res) return;
+    void requestPlace();
+    return () => ask.current?.abort();
+  }, []);
 
   const stopPreview = () => {
     timers.current.forEach((t) => window.clearTimeout(t));
@@ -149,11 +217,15 @@ export function Place() {
     }
   };
 
-  const otherSpot = () => {
+  const otherSpot = async () => {
+    if (assistantOn.value && !asking) {
+      touched.current.clear();
+      if (await requestPlace()) return;
+    }
     const t = p.tracks[trackI]!;
     const empty = PATTERN_IDS.filter((id) => id !== slot && t.patterns[id].steps.every((s) => s.t === 'rest'));
     const next = empty[0] ?? PATTERN_IDS[(PATTERN_IDS.indexOf(slot) + 1) % PATTERN_IDS.length]!;
-    setSlot(next);
+    setSlot(next); // existing next-empty-slot behavior (clears the slot's suggested state)
   };
 
   // Piano-roll style grid of the placed melody.
@@ -253,17 +325,18 @@ export function Place() {
         <div class="pl-card assist" style={{ background: 'var(--surface)', borderColor: '#262930' }}>
           <div class="hd">
             <h3 style={{ color: 'var(--text)' }}>Where it goes</h3>
-            <button onClick={otherSpot} style={{ borderColor: 'var(--border)', color: 'var(--text)' }}>Other spot</button>
+            <button onClick={() => void otherSpot()} disabled={asking} style={{ borderColor: 'var(--border)', color: 'var(--text)' }}>Other spot</button>
           </div>
-          <div class="pl-where">
-            <Stepper label="Track" value={tName} testId="chip-track" onPrev={() => setTrackI(melodic[wrap(melodic.findIndex((x) => x.i === trackI) - 1, melodic.length)]!.i)} onNext={() => setTrackI(melodic[wrap(melodic.findIndex((x) => x.i === trackI) + 1, melodic.length)]!.i)} />
-            <Stepper label="Pattern" value={slot} testId="chip-pattern" onPrev={() => setSlot(PATTERN_IDS[wrap(PATTERN_IDS.indexOf(slot) - 1, 4)]!)} onNext={() => setSlot(PATTERN_IDS[wrap(PATTERN_IDS.indexOf(slot) + 1, 4)]!)} />
-            <Stepper label="Octave" value={sign(oct)} testId="chip-octave" onPrev={() => setOct(Math.max(-4, oct - 1))} onNext={() => setOct(Math.min(4, oct + 1))} />
-            <Stepper label="Repeat" value={`×${rep}`} testId="chip-repeat" onPrev={() => setRepeat(repOpts[wrap(repOpts.indexOf(rep) - 1, repOpts.length)]!)} onNext={() => setRepeat(repOpts[wrap(repOpts.indexOf(rep) + 1, repOpts.length)]!)} />
+          <div class="pl-where" data-asst={assistantOn.value ? '' : undefined}>
+            <Stepper label="Track" value={tName} testId="chip-track" suggested={sug.includes('trackI')} onPrev={() => setTrackI(melodic[wrap(melodic.findIndex((x) => x.i === trackI) - 1, melodic.length)]!.i)} onNext={() => setTrackI(melodic[wrap(melodic.findIndex((x) => x.i === trackI) + 1, melodic.length)]!.i)} />
+            <Stepper label="Pattern" value={slot} testId="chip-pattern" suggested={sug.includes('slot')} onPrev={() => setSlot(PATTERN_IDS[wrap(PATTERN_IDS.indexOf(slot) - 1, 4)]!)} onNext={() => setSlot(PATTERN_IDS[wrap(PATTERN_IDS.indexOf(slot) + 1, 4)]!)} />
+            <Stepper label="Octave" value={sign(oct)} testId="chip-octave" suggested={sug.includes('oct')} onPrev={() => setOct(Math.max(-4, oct - 1))} onNext={() => setOct(Math.min(4, oct + 1))} />
+            <Stepper label="Repeat" value={`×${rep}`} testId="chip-repeat" suggested={sug.includes('repeat')} onPrev={() => setRepeat(repOpts[wrap(repOpts.indexOf(rep) - 1, repOpts.length)]!)} onNext={() => setRepeat(repOpts[wrap(repOpts.indexOf(rep) + 1, repOpts.length)]!)} />
             {p.sections.length > 0 && (
-              <Stepper label="Section" value={sec ? sec.name : '–'} testId="chip-section" onPrev={() => setSectionI(sectionI <= -1 ? p.sections.length - 1 : sectionI - 1)} onNext={() => setSectionI(sectionI >= p.sections.length - 1 ? -1 : sectionI + 1)} />
+              <Stepper label="Section" value={sec ? sec.name : '–'} testId="chip-section" suggested={sug.includes('sectionI')} onPrev={() => setSectionI(sectionI <= -1 ? p.sections.length - 1 : sectionI - 1)} onNext={() => setSectionI(sectionI >= p.sections.length - 1 ? -1 : sectionI + 1)} />
             )}
           </div>
+          {sug.length > 0 && reason && <span class="pl-reason" data-testid="place-reason">{reason}</span>}
           {p.sections.length > 0 && <span class="pl-note-msg" data-testid="section-uses">{users.length ? `${tName} ${slot} plays in: ${users.join(', ')}` : `${tName} ${slot} is not used in the song yet`}</span>}
         </div>
 
