@@ -13,6 +13,7 @@
     "test:watch": "vitest",
     "test:e2e": "vite build --mode test --outDir dist-e2e && playwright test",
     "render:demo": "TOOLS=1 vitest run render-demo --silent=false",
+    "assist:smoke": "TOOLS=1 vitest run assist-smoke --silent=false",
     "bench": "TOOLS=1 vitest run bench --silent=false",
     "notices": "node scripts/build-notices.mjs"
   },
