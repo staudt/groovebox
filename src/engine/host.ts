@@ -172,6 +172,21 @@ export function recallScene(scene: Scene): void {
   apply(cmds);
 }
 
+/** Set by applyAtNextBar: the next pattern changes are swapped in on the next bar line (while playing). */
+let patternAtBar = false;
+
+/**
+ * Applies edits (one undo step) whose pattern changes the engine swaps in exactly on the next bar
+ * line while playing, so a change sent during a section's last bar lands on the next section's
+ * first beat (the Jam queue). Stopped: applies at once.
+ */
+export function applyAtNextBar(cmds: Command[]): void {
+  if (!cmds.length) return;
+  patternAtBar = true;
+  apply(cmds);
+  patternAtBar = false;
+}
+
 /** Set by recallScene: the next mute changes take effect on the next bar (while playing). */
 let muteAtBar = false;
 
@@ -212,7 +227,7 @@ function startSync(): void {
           post({ type: 'sends', track: i, a: t.macros[3].value, b: ch.sendB });
         }
         if (t.patterns !== o.patterns) {
-          for (const id of PATTERN_IDS) if (t.patterns[id] !== o.patterns[id]) post({ type: 'pattern', track: i, pattern: t.patterns[id], slot: slotOf(id) });
+          for (const id of PATTERN_IDS) if (t.patterns[id] !== o.patterns[id]) post({ type: 'pattern', track: i, pattern: t.patterns[id], slot: slotOf(id), ...(patternAtBar && playing.peek() ? { atBar: true } : {}) });
         }
         if (t.mute !== o.mute) post({ type: 'mute', track: i, mute: t.mute, ...(quantizeMutes ? { atBar: true } : {}) });
       });

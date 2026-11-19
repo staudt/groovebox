@@ -6,8 +6,8 @@ import type { FxId } from './fx/ids';
 export type EngineCommand =
   | { type: 'transport'; playing: boolean }
   | { type: 'tempo'; bpm: number; swing: number }
-  /** Pattern data for one slot (0-3 = A-D, default 0) of a track. */
-  | { type: 'pattern'; track: number; pattern: Pattern; slot?: number }
+  /** Pattern data for one slot (0-3 = A-D, default 0) of a track. atBar: while playing, swap it in at the next bar line. */
+  | { type: 'pattern'; track: number; pattern: Pattern; slot?: number; atBar?: boolean }
   /** Loop mode: play slot (0-3) on every track; with `quantize` while playing, from the next bar. */
   | { type: 'patternSelect'; slot: number; quantize: boolean }
   /** Song mode: sections in order (bars, slot per track or -1 = silent); loops at the end. */

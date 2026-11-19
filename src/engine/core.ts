@@ -12,7 +12,7 @@ import { Reverb } from './fx/reverb';
 import { PingPongDelay } from './fx/delay';
 import { DEFAULT_DELAY_FB, DEFAULT_DELAY_STEPS, DEFAULT_REVERB_S, PunchChain } from './fx/punch';
 import { FX_DEFAULT_XY, FX_DEFS, FX_IDS, fxIndex } from './fx/ids';
-import { MAX_STEPS, MAX_TRACKS } from '../store/types';
+import { MAX_STEPS, MAX_TRACKS, type Pattern } from '../store/types';
 
 const MAX_BLOCK = 4096;
 const VOICES_PER_TRACK = 3;
@@ -53,6 +53,76 @@ const ST_NOTE = 2;
 const ST_CHORD = 3;
 const ST_HOLD = 4;
 
+/** Pattern storage for the 4 slots (A-D) back to back: slot k uses indices [k * MAX_STEPS, (k+1) * MAX_STEPS). */
+type PatternData = {
+  lengths: Int32Array;
+  type: Uint8Array;
+  vel: Float32Array;
+  chance: Float32Array;
+  nudge: Float32Array;
+  notes: Int16Array;
+  noteCount: Uint8Array;
+};
+
+function patternData(): PatternData {
+  return {
+    lengths: new Int32Array(SLOTS).fill(16),
+    type: new Uint8Array(MAX_STEPS * SLOTS),
+    vel: new Float32Array(MAX_STEPS * SLOTS),
+    chance: new Float32Array(MAX_STEPS * SLOTS).fill(1),
+    nudge: new Float32Array(MAX_STEPS * SLOTS),
+    notes: new Int16Array(MAX_STEPS * SLOTS * MAX_CHORD),
+    noteCount: new Uint8Array(MAX_STEPS * SLOTS),
+  };
+}
+
+/** Writes one slot of `d` from a pattern (UI rate, not per block). */
+function writePattern(d: PatternData, slot: number, pattern: Pattern): void {
+  const len = Math.min(MAX_STEPS, pattern.length);
+  d.lengths[slot] = len;
+  for (let j = 0; j < MAX_STEPS; j++) {
+    const s = pattern.steps[j];
+    const i = slot * MAX_STEPS + j;
+    d.type[i] = ST_REST;
+    d.vel[i] = 0;
+    d.chance[i] = 1;
+    d.nudge[i] = 0;
+    d.noteCount[i] = 0;
+    if (!s || j >= len) continue;
+    if (s.t === 'hit' || s.t === 'note') {
+      d.type[i] = s.t === 'hit' ? ST_HIT : ST_NOTE;
+      d.vel[i] = s.vel;
+      d.chance[i] = s.chance ?? 1;
+      d.nudge[i] = Math.max(-0.5, Math.min(0.5, s.nudge ?? 0));
+      if (s.t === 'note') {
+        d.notes[i * MAX_CHORD] = s.note;
+        d.noteCount[i] = 1;
+      }
+    } else if (s.t === 'chord') {
+      d.type[i] = ST_CHORD;
+      d.vel[i] = s.vel;
+      const c = Math.min(MAX_CHORD, s.notes.length);
+      for (let k = 0; k < c; k++) d.notes[i * MAX_CHORD + k] = s.notes[k]!;
+      d.noteCount[i] = c;
+    } else if (s.t === 'hold') {
+      d.type[i] = ST_HOLD;
+    }
+  }
+}
+
+/** Copies one slot from `src` to `dst` (bar-line swap of a pending pattern; no allocation). */
+function copySlot(src: PatternData, dst: PatternData, slot: number): void {
+  const a = slot * MAX_STEPS;
+  const b = a + MAX_STEPS;
+  dst.lengths[slot] = src.lengths[slot]!;
+  dst.type.set(src.type.subarray(a, b), a);
+  dst.vel.set(src.vel.subarray(a, b), a);
+  dst.chance.set(src.chance.subarray(a, b), a);
+  dst.nudge.set(src.nudge.subarray(a, b), a);
+  dst.noteCount.set(src.noteCount.subarray(a, b), a);
+  dst.notes.set(src.notes.subarray(a * MAX_CHORD, b * MAX_CHORD), a * MAX_CHORD);
+}
+
 class TrackState {
   kind = KIND_OFF;
   mute = false;
@@ -72,6 +142,9 @@ class TrackState {
   mixSolo = false;
   /** Mute to apply at the next bar line (-1 = none). */
   pendingMute = -1;
+  /** Patterns to swap in at the next bar line (bit k = slot k waiting in `pending`). */
+  readonly pending = patternData();
+  pendingMask = 0;
   /** Samples left of fast (1.5 ms) gain smoothing after a bar-quantized mute. */
   fastFade = 0;
   readonly fm = new FmParams();
@@ -275,35 +348,13 @@ export class Engine {
         const ts = this.tracks[cmd.track];
         if (!ts) return;
         const slot = Math.min(SLOTS - 1, Math.max(0, cmd.slot ?? 0));
-        const len = Math.min(MAX_STEPS, cmd.pattern.length);
-        ts.lengths[slot] = len;
-        for (let j = 0; j < MAX_STEPS; j++) {
-          const s = cmd.pattern.steps[j];
-          const i = slot * MAX_STEPS + j;
-          ts.type[i] = ST_REST;
-          ts.vel[i] = 0;
-          ts.chance[i] = 1;
-          ts.nudge[i] = 0;
-          ts.noteCount[i] = 0;
-          if (!s || j >= len) continue;
-          if (s.t === 'hit' || s.t === 'note') {
-            ts.type[i] = s.t === 'hit' ? ST_HIT : ST_NOTE;
-            ts.vel[i] = s.vel;
-            ts.chance[i] = s.chance ?? 1;
-            ts.nudge[i] = Math.max(-0.5, Math.min(0.5, s.nudge ?? 0));
-            if (s.t === 'note') {
-              ts.notes[i * MAX_CHORD] = s.note;
-              ts.noteCount[i] = 1;
-            }
-          } else if (s.t === 'chord') {
-            ts.type[i] = ST_CHORD;
-            ts.vel[i] = s.vel;
-            const c = Math.min(MAX_CHORD, s.notes.length);
-            for (let k = 0; k < c; k++) ts.notes[i * MAX_CHORD + k] = s.notes[k]!;
-            ts.noteCount[i] = c;
-          } else if (s.t === 'hold') {
-            ts.type[i] = ST_HOLD;
-          }
+        if (cmd.atBar && this.playing) {
+          // Held until the next bar line, then swapped in before that bar's first step is scheduled.
+          writePattern(ts.pending, slot, cmd.pattern);
+          ts.pendingMask |= 1 << slot;
+        } else {
+          writePattern(ts, slot, cmd.pattern);
+          ts.pendingMask &= ~(1 << slot);
         }
         break;
       }
@@ -695,6 +746,10 @@ export class Engine {
       if (s % STEPS_PER_BAR === 0) {
         for (let t = 0; t < MAX_TRACKS; t++) {
           const ts = this.tracks[t]!;
+          if (ts.pendingMask !== 0) {
+            for (let k = 0; k < SLOTS; k++) if (ts.pendingMask & (1 << k)) copySlot(ts.pending, ts, k);
+            ts.pendingMask = 0;
+          }
           if (ts.pendingMute >= 0) {
             // A fast fade that starts MUTE_LEAD_S before the bar line, so the bar starts fully
             // muted (or fully open): the downbeat hit is never half-heard.

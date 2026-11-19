@@ -160,3 +160,23 @@ describe('acceptance: a full song plays back identically after reload', () => {
     expect(after.right).toEqual(before.right);
   });
 });
+
+describe('bar-quantized pattern swap (Jam queue)', () => {
+  it('a pattern sent with atBar mid-bar is swapped in exactly at the next bar line', () => {
+    const p = pingProject({ A: 'x . . . . . . . . . . . . . . .' });
+    const next = parsePattern('. . . . . . . . x . . . . . . .');
+    const r = render([...projectCommands(p, 'A'), START], 3 * 2, {
+      at: [{ time: 1.9, cmd: { type: 'pattern', track: 0, pattern: next, slot: 0, atBar: true } }],
+    });
+    // Bar 0 (0-2 s) plays the old pattern, even though the change arrived at 1.9 s; from bar 1: the new one.
+    expect(onsetSteps(r.left)).toEqual([0, 16 + 8, 32 + 8]);
+  });
+
+  it('without atBar the change takes effect at once', () => {
+    const p = pingProject({ A: '. . . . . . . . . . . . . . . .' });
+    const r = render([...projectCommands(p, 'A'), START], 2, {
+      at: [{ time: 0.3, cmd: { type: 'pattern', track: 0, pattern: parsePattern('. . . . . . . . x . . . . . . .'), slot: 0 } }],
+    });
+    expect(onsetSteps(r.left)).toEqual([8]);
+  });
+});
