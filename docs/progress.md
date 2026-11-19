@@ -1,5 +1,26 @@
 # Progress
 
+## Phase 6: Assistant (2026-11-18) — awaiting a try with a real key
+
+**Built**
+- Local-only assistant (user decision): a proxy inside the Vite dev / LAN / preview servers (`scripts/assist-plugin.ts` -> `worker/assist.ts`) holds `ANTHROPIC_API_KEY` from `.env` (git-ignored; never sent to the browser). The GitHub Pages build has no proxy, so the app's health check fails there and every assistant control stays hidden. The handler is framework-neutral for a later Cloudflare Worker.
+- Claude Haiku 5.5 (`claude-haiku-5-5`), effort low, structured outputs from zod schemas (`src/assist/schemas.ts`), cached system prompt with the notation, project model and FM reference; compact project summary in text notation.
+- Every answer is re-validated in the app and converted by `src/assist/apply.ts`: unknown tracks and bad notation are dropped, numbers clamped; errors and timeouts show nothing new.
+- Ask bar (Play, Song, desktop `/`): proposals with checkboxes, Apply as one undo step, Skip.
+- Describe a sound (Sound screen, FM): takes A/B/C with descriptions, tap to apply and preview, Original restores.
+- Place: the suggestion (track, slot, section, repeats, octave) fills the controls in cyan with a one-line reason; any manual change clears it; Other spot asks again.
+- Jam queue (Song screen): variations prepared in the background while playing; Queue / Skip; a queued item is sent during the section's last bar and the engine swaps it in exactly on the next bar line (new `atBar` pattern updates), so it lands on the next section's first beat.
+
+**Verified automatically** (no real API calls in the test suite)
+- Proxy: refuses without a key or with bad requests, sends Haiku the cached system prompt + JSON schema + low effort, maps refusals and errors to "nothing new".
+- Converters: clamping, dropping invalid commands, drum tracks only get hits; the system prompt is long enough to be cached.
+- Engine: a pattern sent with `atBar` mid-bar swaps in exactly at the next bar line.
+- 305 unit tests, 262 Playwright tests incl. every assistant flow with mocked answers, failures/timeouts changing nothing, the assistant hidden when no proxy answers, and phone fit with the assistant on (on short phones the Ask bar steps aside while the keyboard drawer is open).
+
+**Needs a human**
+- Put a key in `.env` (copy `.env.example`), restart `pnpm dev` (or `pnpm dev:lan` for the phone), optionally run `pnpm assist:smoke` (about a tenth of a cent) to check the key, answers and prompt caching.
+- Judge answer quality by ear: Describe a sound takes, Ask bar edits, Place suggestions, Jam variations landing on the section boundary.
+
 ## Phase 5: Capture and harmony (2026-11-17) — awaiting phone check and real recordings
 
 **Built**
